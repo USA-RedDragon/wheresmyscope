@@ -6,6 +6,11 @@
 # The port to listen on for incoming connections. Defaults to 8080.
 # port: 8080
 
+# CORS configuration. Defaults to allow all origins.
+# cors-allowed-origins: 
+  # - http://localhost:3000
+  # - http://example.com
+
 # Image URL configuration for HiPS2FITS
 # image:
   # HiPS survey to use. Defaults to CDS/P/DSS2/color

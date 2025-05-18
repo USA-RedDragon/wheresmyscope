@@ -1,10 +1,11 @@
 package config
 
 type Config struct {
-	LogLevel LogLevel `name:"log-level" description:"Logging level for the application. One of debug, info, warn, or error" default:"info"`
-	Port     int      `name:"port" description:"Port to listen on" default:"8080"`
-	MQTT     MQTT     `name:"mqtt" description:"MQTT configuration"`
-	Image    Image    `name:"image" description:"Image configuration"`
+	LogLevel           LogLevel `name:"log-level" description:"Logging level for the application. One of debug, info, warn, or error" default:"info"`
+	Port               int      `name:"port" description:"Port to listen on" default:"8080"`
+	MQTT               MQTT     `name:"mqtt" description:"MQTT configuration"`
+	Image              Image    `name:"image" description:"Image configuration"`
+	CORSAllowedOrigins []string `name:"cors-allowed-origins" description:"CORS allowed origins" default:"https://*,http://*"`
 }
 
 type Image struct {

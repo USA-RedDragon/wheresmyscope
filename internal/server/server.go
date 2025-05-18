@@ -10,6 +10,7 @@ import (
 	"github.com/USA-RedDragon/wheresmyscope/internal/mqtt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 type contextKey uint8
@@ -25,6 +26,11 @@ func NewRouter(cfg *config.Config, mqttClient *mqtt.MQTT) *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: cfg.CORSAllowedOrigins,
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions, http.MethodHead},
+		AllowedHeaders: []string{"Accept", "Content-Type"},
+	}))
 
 	// Pass the MQTT client to the context under the key "mqtt"
 	r.Use(func(h http.Handler) http.Handler {
