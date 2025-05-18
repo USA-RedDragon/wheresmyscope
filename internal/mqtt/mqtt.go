@@ -12,6 +12,7 @@ import (
 	"github.com/USA-RedDragon/wheresmyscope/internal/utils"
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/google/uuid"
 )
 
 type ScopeState struct {
@@ -47,7 +48,7 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 		ConnectUsername:       config.MQTT.Username,
 		ConnectPassword:       []byte(config.MQTT.Password),
 		ClientConfig: paho.ClientConfig{
-			ClientID: config.MQTT.ClientID,
+			ClientID: fmt.Sprintf("%s_%s", config.MQTT.ClientID, uuid.New().String()),
 			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
 				func(pr paho.PublishReceived) (bool, error) {
 					mqtt.updateState(pr.Packet.Topic, string(pr.Packet.Payload))
