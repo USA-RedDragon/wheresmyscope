@@ -138,10 +138,26 @@ func (m *MQTT) updateState(topic, payload string) {
 		return
 	}
 
-	m.state.ImageURL = fmt.Sprintf(
-		"https://alaskybis.u-strasbg.fr/hips-image-services/hips2fits?projection=%s&hips=CDS%%2FP%%2FDSS2%%2Fcolor&fov=%f&ra=%f&dec=%f&format=jpg",
-		m.config.Projection, m.config.FOV, m.state.RightAscension, m.state.Declination,
-	)
+	queryParams := url.Values{}
+	queryParams.Set("projection", string(m.config.Image.Projection))
+	queryParams.Set("hips", m.config.Image.HiPS)
+	queryParams.Set("fov", fmt.Sprintf("%f", m.config.Image.FOV))
+	queryParams.Set("ra", fmt.Sprintf("%f", m.state.RightAscension))
+	queryParams.Set("dec", fmt.Sprintf("%f", m.state.Declination))
+	queryParams.Set("format", string(m.config.Image.Format))
+	queryParams.Set("width", fmt.Sprintf("%d", m.config.Image.Width))
+	queryParams.Set("height", fmt.Sprintf("%d", m.config.Image.Height))
+	queryParams.Set("stretch", string(m.config.Image.Stretch))
+	queryParams.Set("min_cut", fmt.Sprintf("%f%%", m.config.Image.MinCut))
+	queryParams.Set("max_cut", fmt.Sprintf("%f%%", m.config.Image.MaxCut))
+
+	url := "https://alaskybis.u-strasbg.fr/hips-image-services/hips2fits"
+	queryString := queryParams.Encode()
+	if queryString != "" {
+		url += "?" + queryString
+	}
+
+	m.state.ImageURL = url
 
 	_, err := m.client.Publish(context.Background(), &paho.Publish{
 		Topic:   m.config.MQTT.Prefix + "/image_url",

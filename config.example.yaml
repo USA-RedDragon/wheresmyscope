@@ -6,11 +6,34 @@
 # The port to listen on for incoming connections. Defaults to 8080.
 # port: 8080
 
-# Field of view in degrees. Defaults to 3.3
-# fov: 3.3
+# Image URL configuration for HiPS2FITS
+# image:
+  # HiPS survey to use. Defaults to CDS/P/DSS2/color
+  # hips: "CDS/P/DSS2/color"
 
-# Projection type. Can be one of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH. Defaults to STG.
-# projection: STG
+  # Field of view in degrees. Defaults to 3.3
+  # fov: 3.3
+
+  # Projection type. Can be one of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH. Defaults to STG.
+  # projection: STG
+
+  # Format of the image. Can be one of png, jpeg, or fits. Defaults to png.
+  # format: png
+
+  # Width of the image in pixels. Defaults to 900.
+  # width: 900
+
+  # Height of the image in pixels. Defaults to 600.
+  # height: 600
+
+  # Stretch type. Only valid for png and jpeg formats. Can be one of power, linear, sqrt, log, or asinh. Defaults to linear.
+  # stretch: linear
+
+  # Minimum value for the stretch between 0 and 100. Only valid for png and jpeg formats. Defaults to 0.5
+  # min-cut: 0.5
+
+  # Maximum value for the stretch between 0 and 100. Only valid for png and jpeg formats. Defaults to 99.5
+  # max-cut: 99.5
 
 # MQTT broker configuration
 # mqtt:
