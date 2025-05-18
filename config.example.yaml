@@ -1,0 +1,24 @@
+# This is an example configuration file
+
+# Log level can be one of debug, info, warn, error. Defaults to info.
+# log-level: info
+
+# The port to listen on for incoming connections. Defaults to 8080.
+# port: 8080
+
+# MQTT broker configuration
+mqtt:
+  # MQTT client ID to use when connecting to the broker. Defaults to wheresmyscope.
+  # client-id: wheresmyscope
+  
+  # MQTT prefix to use for all topics. Defaults to wheresmyscope.
+  # prefix: wheresmyscope
+
+  # MQTT server address. Required
+  # broker: mqtt://mqtt.eclipse.org:1883
+
+  # MQTT server username
+  # username: wheresmyscope
+
+  # MQTT server password
+  # password: thisisabadpassword
