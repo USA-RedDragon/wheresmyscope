@@ -19,7 +19,7 @@ type ScopeState struct {
 	Start          time.Time `json:"start"`
 	RightAscension float64   `json:"ra"`
 	Declination    float64   `json:"dec"`
-	Available      bool      `json:"available"`
+	Live           bool      `json:"live"`
 	ImageURL       string    `json:"image_url"`
 }
 
@@ -133,7 +133,7 @@ func (m *MQTT) updateState(topic, payload string) {
 			slog.Error("failed to publish DEC", "error", err)
 		}
 	case m.config.MQTT.Prefix + "/available":
-		m.state.Available = payload == "true"
+		m.state.Live = payload == "true"
 	default:
 		return
 	}
