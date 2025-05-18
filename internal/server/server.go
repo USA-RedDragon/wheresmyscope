@@ -45,7 +45,10 @@ func NewRouter(cfg *config.Config, mqttClient *mqtt.MQTT) *chi.Mux {
 		// Output the current state of the scope in JSON format
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(mqtt.GetState()); err != nil {
+
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false) // Disable HTML escaping
+		if err := encoder.Encode(mqtt.GetState()); err != nil {
 			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
 			return
 		}
