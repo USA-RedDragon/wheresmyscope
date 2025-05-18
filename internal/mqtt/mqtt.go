@@ -25,13 +25,13 @@ type ScopeState struct {
 
 type MQTT struct {
 	client    *autopaho.ConnectionManager
-	config    *config.MQTT
+	config    *config.Config
 	state     ScopeState
 	stateLock sync.Mutex
 }
 
-func NewMQTT(ctx context.Context, config *config.MQTT) (*MQTT, error) {
-	u, err := url.Parse(config.Broker)
+func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
+	u, err := url.Parse(config.MQTT.Broker)
 	if err != nil {
 		return nil, err
 	}
@@ -44,10 +44,10 @@ func NewMQTT(ctx context.Context, config *config.MQTT) (*MQTT, error) {
 		ServerUrls:            []*url.URL{u},
 		KeepAlive:             30,
 		SessionExpiryInterval: 0xFFFFFFFE, // Never expire
-		ConnectUsername:       config.Username,
-		ConnectPassword:       []byte(config.Password),
+		ConnectUsername:       config.MQTT.Username,
+		ConnectPassword:       []byte(config.MQTT.Password),
 		ClientConfig: paho.ClientConfig{
-			ClientID: config.ClientID,
+			ClientID: config.MQTT.ClientID,
 			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
 				func(pr paho.PublishReceived) (bool, error) {
 					mqtt.updateState(pr.Packet.Topic, string(pr.Packet.Payload))
@@ -68,7 +68,7 @@ func NewMQTT(ctx context.Context, config *config.MQTT) (*MQTT, error) {
 	_, err = c.Subscribe(ctx, &paho.Subscribe{
 		Subscriptions: []paho.SubscribeOptions{
 			{
-				Topic: config.Prefix + "/#",
+				Topic: config.MQTT.Prefix + "/#",
 				QoS:   1,
 			},
 		},
@@ -96,14 +96,14 @@ func (m *MQTT) updateState(topic, payload string) {
 	defer m.stateLock.Unlock()
 
 	switch topic {
-	case m.config.Prefix + "/name":
+	case m.config.MQTT.Prefix + "/name":
 		m.state.Target = payload
-	case m.config.Prefix + "/start":
+	case m.config.MQTT.Prefix + "/start":
 		start, err := time.Parse(time.RFC3339, payload)
 		if err == nil {
 			m.state.Start = start
 		}
-	case m.config.Prefix + "/ra":
+	case m.config.MQTT.Prefix + "/ra":
 		ra, err := utils.RaToDegrees(payload)
 		if err == nil {
 			m.state.RightAscension = ra
@@ -111,12 +111,12 @@ func (m *MQTT) updateState(topic, payload string) {
 			slog.Error("failed to parse RA", "error", err)
 		}
 		_, err = m.client.Publish(context.Background(), &paho.Publish{
-			Topic:   m.config.Prefix + "/ra_decimal_degrees",
+			Topic:   m.config.MQTT.Prefix + "/ra_decimal_degrees",
 			QoS:     1,
 			Retain:  true,
 			Payload: []byte(fmt.Sprintf("%f", m.state.RightAscension)),
 		})
-	case m.config.Prefix + "/dec":
+	case m.config.MQTT.Prefix + "/dec":
 		dec, err := utils.DecToDegrees(payload)
 		if err == nil {
 			m.state.Declination = dec
@@ -124,7 +124,7 @@ func (m *MQTT) updateState(topic, payload string) {
 			slog.Error("failed to parse DEC", "error", err)
 		}
 		_, err = m.client.Publish(context.Background(), &paho.Publish{
-			Topic:   m.config.Prefix + "/dec_decimal_degrees",
+			Topic:   m.config.MQTT.Prefix + "/dec_decimal_degrees",
 			QoS:     1,
 			Retain:  true,
 			Payload: []byte(fmt.Sprintf("%f", m.state.Declination)),
@@ -132,19 +132,19 @@ func (m *MQTT) updateState(topic, payload string) {
 		if err != nil {
 			slog.Error("failed to publish DEC", "error", err)
 		}
-	case m.config.Prefix + "/available":
+	case m.config.MQTT.Prefix + "/available":
 		m.state.Available = payload == "true"
 	default:
 		return
 	}
 
 	m.state.ImageURL = fmt.Sprintf(
-		"https://alaskybis.u-strasbg.fr/hips-image-services/hips2fits?projection=STG&hips=CDS%%2FP%%2FDSS2%%2Fcolor&width=900&height=600&fov=3.3&ra=%f&dec=%f&format=jpg",
-		m.state.RightAscension, m.state.Declination,
+		"https://alaskybis.u-strasbg.fr/hips-image-services/hips2fits?projection=%s&hips=CDS%%2FP%%2FDSS2%%2Fcolor&fov=%f&ra=%f&dec=%f&format=jpg",
+		m.config.Projection, m.config.FOV, m.state.RightAscension, m.state.Declination,
 	)
 
 	_, err := m.client.Publish(context.Background(), &paho.Publish{
-		Topic:   m.config.Prefix + "/image_url",
+		Topic:   m.config.MQTT.Prefix + "/image_url",
 		QoS:     1,
 		Retain:  true,
 		Payload: []byte(m.state.ImageURL),

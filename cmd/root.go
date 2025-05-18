@@ -62,7 +62,7 @@ func runRoot(cmd *cobra.Command, _ []string) error {
 	slog.SetDefault(logger)
 
 	serverCtx, serverStopCtx := context.WithCancel(ctx)
-	mqtt, err := mqtt.NewMQTT(serverCtx, &cfg.MQTT)
+	mqtt, err := mqtt.NewMQTT(serverCtx, cfg)
 	if err != nil {
 		serverStopCtx()
 		return fmt.Errorf("failed to create MQTT client: %w", err)

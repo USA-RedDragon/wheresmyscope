@@ -6,8 +6,14 @@
 # The port to listen on for incoming connections. Defaults to 8080.
 # port: 8080
 
+# Field of view in degrees. Defaults to 3.3
+# fov: 3.3
+
+# Projection type. Can be one of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH. Defaults to STG.
+# projection: STG
+
 # MQTT broker configuration
-mqtt:
+# mqtt:
   # MQTT client ID to use when connecting to the broker. Defaults to wheresmyscope.
   # client-id: wheresmyscope
   
