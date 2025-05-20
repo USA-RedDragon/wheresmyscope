@@ -155,16 +155,26 @@ func (m *MQTT) updateState(topic, payload string) {
 	queryParams := url.Values{}
 	queryParams.Set("projection", string(m.config.Image.Projection))
 	queryParams.Set("hips", m.config.Image.HiPS)
-	queryParams.Set("fov", fmt.Sprintf("%f", m.config.Image.FOV))
-	queryParams.Set("ra", fmt.Sprintf("%f", m.state.RightAscension))
-	queryParams.Set("dec", fmt.Sprintf("%f", m.state.Declination))
-	queryParams.Set("format", string(m.config.Image.Format))
+	queryParams.Set("fov", fmt.Sprintf("%.1f", m.config.Image.FOV))
+	queryParams.Set("ra", fmt.Sprintf("%.3f", m.state.RightAscension))
+	queryParams.Set("dec", fmt.Sprintf("%.3f", m.state.Declination))
+	if m.config.Image.Format != config.ImageFormatFITS {
+		queryParams.Set("format", string(m.config.Image.Format))
+	}
 	queryParams.Set("width", fmt.Sprintf("%d", m.config.Image.Width))
 	queryParams.Set("height", fmt.Sprintf("%d", m.config.Image.Height))
-	queryParams.Set("stretch", string(m.config.Image.Stretch))
-	queryParams.Set("rotation_angle", fmt.Sprintf("%f", m.state.Rotation))
-	queryParams.Set("min_cut", fmt.Sprintf("%f%%", m.config.Image.MinCut))
-	queryParams.Set("max_cut", fmt.Sprintf("%f%%", m.config.Image.MaxCut))
+	if m.config.Image.Stretch != config.StretchTypeLinear {
+		queryParams.Set("stretch", string(m.config.Image.Stretch))
+	}
+	if m.state.Rotation != 0 {
+		queryParams.Set("rotation_angle", fmt.Sprintf("%.2f", m.state.Rotation))
+	}
+	if m.config.Image.MinCut != 0.5 {
+		queryParams.Set("min_cut", fmt.Sprintf("%.1f%%", m.config.Image.MinCut))
+	}
+	if m.config.Image.MaxCut != 99.5 {
+		queryParams.Set("max_cut", fmt.Sprintf("%.1f%%", m.config.Image.MaxCut))
+	}
 
 	url := "https://alaskybis.u-strasbg.fr/hips-image-services/hips2fits"
 	queryString := queryParams.Encode()
