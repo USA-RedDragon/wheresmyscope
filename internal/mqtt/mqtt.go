@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/wheresmyscope/internal/config"
-	"github.com/USA-RedDragon/wheresmyscope/internal/utils"
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/google/uuid"
@@ -18,6 +18,7 @@ import (
 type ScopeState struct {
 	Target         string    `json:"target"`
 	Start          time.Time `json:"start"`
+	Rotation       float64   `json:"rotation"`
 	RightAscension float64   `json:"ra"`
 	Declination    float64   `json:"dec"`
 	Live           bool      `json:"live"`
@@ -103,11 +104,20 @@ func (m *MQTT) updateState(topic, payload string) {
 		start, err := time.Parse(time.RFC3339, payload)
 		if err == nil {
 			m.state.Start = start
+		} else {
+			slog.Error("failed to parse start time", "error", err)
 		}
-	case m.config.MQTT.Prefix + "/ra":
-		ra, err := utils.RaToDegrees(payload)
+	case m.config.MQTT.Prefix + "/rotation":
+		rotation, err := strconv.ParseFloat(payload, 64)
 		if err == nil {
-			m.state.RightAscension = ra
+			m.state.Rotation = rotation
+		} else {
+			slog.Error("failed to parse rotation", "error", err)
+		}
+	case m.config.MQTT.Prefix + "/ra_decimal":
+		val, err := strconv.ParseFloat(payload, 64)
+		if err == nil {
+			m.state.RightAscension = val * 15 // 1 hour is 15 degrees
 		} else {
 			slog.Error("failed to parse RA", "error", err)
 		}
@@ -117,8 +127,11 @@ func (m *MQTT) updateState(topic, payload string) {
 			Retain:  true,
 			Payload: []byte(fmt.Sprintf("%f", m.state.RightAscension)),
 		})
-	case m.config.MQTT.Prefix + "/dec":
-		dec, err := utils.DecToDegrees(payload)
+		if err != nil {
+			slog.Error("failed to publish RA", "error", err)
+		}
+	case m.config.MQTT.Prefix + "/dec_decimal":
+		dec, err := strconv.ParseFloat(payload, 64)
 		if err == nil {
 			m.state.Declination = dec
 		} else {
@@ -149,6 +162,7 @@ func (m *MQTT) updateState(topic, payload string) {
 	queryParams.Set("width", fmt.Sprintf("%d", m.config.Image.Width))
 	queryParams.Set("height", fmt.Sprintf("%d", m.config.Image.Height))
 	queryParams.Set("stretch", string(m.config.Image.Stretch))
+	queryParams.Set("rotation_angle", fmt.Sprintf("%f", m.state.Rotation))
 	queryParams.Set("min_cut", fmt.Sprintf("%f%%", m.config.Image.MinCut))
 	queryParams.Set("max_cut", fmt.Sprintf("%f%%", m.config.Image.MaxCut))
 
