@@ -1,3 +1,4 @@
 FROM scratch
-COPY wheresmyscope /
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/wheresmyscope /
 ENTRYPOINT ["/wheresmyscope"]
