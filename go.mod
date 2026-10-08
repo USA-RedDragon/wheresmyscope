@@ -3,7 +3,7 @@ module github.com/USA-RedDragon/wheresmyscope
 go 1.24.3
 
 require (
-	github.com/USA-RedDragon/configulator v0.0.0-20250409213831-8d29f1f162be
+	github.com/USA-RedDragon/configulator v0.0.6
 	github.com/eclipse/paho.golang v0.22.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/cors v1.2.1
