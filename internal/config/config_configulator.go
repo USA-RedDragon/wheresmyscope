@@ -57,7 +57,7 @@ func ConfigSchema() *configulator.Schema[Config] {
 	}
 }
 func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
-	cfg.LogLevel = "info"
+	cfg.LogLevel = LogLevel("info")
 	set("log-level", configulator.LayerDefault, "default tag")
 	cfg.Port = 8080
 	set("port", configulator.LayerDefault, "default tag")
@@ -65,17 +65,17 @@ func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
 	set("mqtt.client-id", configulator.LayerDefault, "default tag")
 	cfg.MQTT.Prefix = "wheresmyscope"
 	set("mqtt.prefix", configulator.LayerDefault, "default tag")
-	cfg.Image.Projection = "STG"
+	cfg.Image.Projection = ProjectionType("STG")
 	set("image.projection", configulator.LayerDefault, "default tag")
 	cfg.Image.FOV = 3.3
 	set("image.fov", configulator.LayerDefault, "default tag")
-	cfg.Image.Format = "png"
+	cfg.Image.Format = ImageFormat("png")
 	set("image.format", configulator.LayerDefault, "default tag")
 	cfg.Image.Width = 900
 	set("image.width", configulator.LayerDefault, "default tag")
 	cfg.Image.Height = 600
 	set("image.height", configulator.LayerDefault, "default tag")
-	cfg.Image.Stretch = "linear"
+	cfg.Image.Stretch = StretchType("linear")
 	set("image.stretch", configulator.LayerDefault, "default tag")
 	cfg.Image.MinCut = 0.5
 	set("image.min-cut", configulator.LayerDefault, "default tag")
@@ -1148,8 +1148,8 @@ func (s *publicFrameShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 var _ v2.UnmarshalerFrom = (*publicFrameShadow)(nil)
 
 // PrintConfig renders every field as "path = value" lines, redacting
-// fields tagged secret:"true". Values never appear in the origin
-// Report; this method is the one place redaction is enforced.
+// fields tagged secret:"true". The origin Report holds no values,
+// so this is the only place redaction happens.
 func (c *Config) PrintConfig() string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("log-level = %v\n", c.LogLevel))
@@ -1158,7 +1158,7 @@ func (c *Config) PrintConfig() string {
 	b.WriteString(fmt.Sprintf("mqtt.client-id = %v\n", c.MQTT.ClientID))
 	b.WriteString(fmt.Sprintf("mqtt.prefix = %v\n", c.MQTT.Prefix))
 	b.WriteString(fmt.Sprintf("mqtt.username = %v\n", c.MQTT.Username))
-	b.WriteString(fmt.Sprintf("mqtt.password = %v\n", c.MQTT.Password))
+	b.WriteString("mqtt.password = (redacted)\n")
 	b.WriteString(fmt.Sprintf("image.projection = %v\n", c.Image.Projection))
 	b.WriteString(fmt.Sprintf("image.fov = %v\n", c.Image.FOV))
 	b.WriteString(fmt.Sprintf("image.format = %v\n", c.Image.Format))

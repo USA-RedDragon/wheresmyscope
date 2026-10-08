@@ -38,5 +38,5 @@ type MQTT struct {
 	ClientID string `name:"client-id" description:"Client ID for MQTT connection" default:"wheresmyscope"`
 	Prefix   string `name:"prefix" description:"Prefix for MQTT topics" default:"wheresmyscope"`
 	Username string `name:"username" description:"Username for MQTT connection"`
-	Password string `name:"password" description:"Password for MQTT connection"`
+	Password string `name:"password" description:"Password for MQTT connection" secret:"true"`
 }
