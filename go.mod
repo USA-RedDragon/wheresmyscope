@@ -9,7 +9,7 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/goccy/go-yaml v1.19.2
 	github.com/google/uuid v1.6.0
-	github.com/lmittmann/tint v1.0.7
+	github.com/lmittmann/tint v1.2.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.10
 )
