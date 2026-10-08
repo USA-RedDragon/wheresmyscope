@@ -1,5 +1,7 @@
 package config
 
+//go:generate go tool configulator -type Config
+
 type Config struct {
 	LogLevel           LogLevel    `name:"log-level" description:"Logging level for the application. One of debug, info, warn, or error" default:"info"`
 	Port               int         `name:"port" description:"Port to listen on" default:"8080"`

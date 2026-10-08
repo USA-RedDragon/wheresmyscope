@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/USA-RedDragon/configulator"
+	configulator "github.com/USA-RedDragon/configulator/v2"
 	"github.com/USA-RedDragon/wheresmyscope/internal/config"
 )
 
@@ -23,7 +23,7 @@ func TestLogLevelConstants(t *testing.T) {
 		{"invalid level", "invalid", false},
 	}
 
-	defConfig, err := configulator.New[config.Config]().Default()
+	defConfig, err := configulator.New(config.ConfigSchema()).Default()
 	if err != nil {
 		t.Fatalf("failed to create default config: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestPortValidation(t *testing.T) {
 		{"port too high", 70000, false},
 	}
 
-	defConfig, err := configulator.New[config.Config]().Default()
+	defConfig, err := configulator.New(config.ConfigSchema()).Default()
 	if err != nil {
 		t.Fatalf("failed to create default config: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestPortValidation(t *testing.T) {
 func TestPublicFrameValidation(t *testing.T) {
 	t.Parallel()
 
-	defConfig, err := configulator.New[config.Config]().Default()
+	defConfig, err := configulator.New(config.ConfigSchema()).Default()
 	if err != nil {
 		t.Fatalf("failed to create default config: %v", err)
 	}

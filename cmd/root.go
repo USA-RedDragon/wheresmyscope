@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/USA-RedDragon/configulator"
+	configulator "github.com/USA-RedDragon/configulator/v2"
 	"github.com/USA-RedDragon/wheresmyscope/internal/config"
 	"github.com/USA-RedDragon/wheresmyscope/internal/mqtt"
 	"github.com/USA-RedDragon/wheresmyscope/internal/server"

@@ -1,21 +1,28 @@
 module github.com/USA-RedDragon/wheresmyscope
 
-go 1.24.3
+go 1.27.1
 
 require (
-	github.com/USA-RedDragon/configulator v0.0.6
+	github.com/USA-RedDragon/configulator/v2 v2.0.0-20261008025259-25f18ae7070f
 	github.com/eclipse/paho.golang v0.22.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/cors v1.2.1
+	github.com/goccy/go-yaml v1.19.2
 	github.com/google/uuid v1.6.0
 	github.com/lmittmann/tint v1.0.7
 	github.com/spf13/cobra v1.9.1
+	github.com/spf13/pflag v1.0.10
 )
 
 require (
+	github.com/USA-RedDragon/configulator/v2/cmd/configulator v0.0.0-20261008025259-25f18ae7070f // indirect
+	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
-	golang.org/x/net v0.27.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/mod v0.39.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 )
+
+tool github.com/USA-RedDragon/configulator/v2/cmd/configulator
