@@ -60,5 +60,11 @@ func NewRouter(cfg *config.Config, mqttClient *mqtt.MQTT) *chi.Mux {
 		}
 	})
 
+	// The observatory's own frame, when the state's image_url points here.
+	if h := mqttClient.Frames(); h != nil {
+		r.Method(http.MethodGet, "/image.jpg", h)
+		r.Method(http.MethodHead, "/image.jpg", h)
+	}
+
 	return r
 }

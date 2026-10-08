@@ -56,3 +56,20 @@
 
   # MQTT server password
   # password: thisisabadpassword
+
+# The observatory's own newest sub of the target, instead of the survey image,
+# while it is imaging that target. astro-stacker renders it (small, stretched,
+# watermarked); this service polls it in the background, caches it, and serves
+# it at /image.jpg. Any error or timeout falls back to the survey image.
+# public-frame:
+  # astro-stacker's base URL. Empty (the default) shows only survey images.
+  # stacker-url: http://astro-stacker.astro-processing:8080
+
+  # This service's public base URL, which the page loads the frame from.
+  # public-url: https://wheresmyscope.mcswain.dev
+
+  # Seconds between checks for a newer frame. Defaults to 60.
+  # interval-seconds: 60
+
+  # Seconds before a fetch gives up. Defaults to 10.
+  # timeout-seconds: 10

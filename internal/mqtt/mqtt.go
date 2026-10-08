@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/wheresmyscope/internal/config"
+	"github.com/USA-RedDragon/wheresmyscope/internal/publicframe"
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/google/uuid"
@@ -26,10 +29,23 @@ type ScopeState struct {
 }
 
 type MQTT struct {
-	client    *autopaho.ConnectionManager
-	config    *config.Config
-	state     ScopeState
-	stateLock sync.Mutex
+	client     *autopaho.ConnectionManager
+	clientLock sync.RWMutex
+	config     *config.Config
+	state      ScopeState
+	stateLock  sync.Mutex
+
+	// surveyURL is the hips2fits cutout of where the scope points; the
+	// page shows it unless frames has the observatory's own sub of the
+	// target being imaged.
+	surveyURL string
+	frames    *publicframe.Fetcher
+	publicURL string
+	// kick asks the frame poller to fetch now: the target or the
+	// observatory's availability changed.
+	kick chan struct{}
+	// published is the image URL last published over MQTT.
+	published string
 }
 
 func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
@@ -40,6 +56,11 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 
 	mqtt := &MQTT{
 		config: config,
+		kick:   make(chan struct{}, 1),
+	}
+	if config.PublicFrame.StackerURL != "" {
+		mqtt.frames = publicframe.New(config.PublicFrame.StackerURL, time.Duration(config.PublicFrame.TimeoutSeconds)*time.Second)
+		mqtt.publicURL = strings.TrimSuffix(config.PublicFrame.PublicURL, "/")
 	}
 
 	pahoConfig := autopaho.ClientConfig{
@@ -66,6 +87,9 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 	if err = c.AwaitConnection(ctx); err != nil {
 		return nil, err
 	}
+	mqtt.clientLock.Lock()
+	mqtt.client = c
+	mqtt.clientLock.Unlock()
 
 	_, err = c.Subscribe(ctx, &paho.Subscribe{
 		Subscriptions: []paho.SubscribeOptions{
@@ -79,7 +103,6 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 		return nil, err
 	}
 
-	mqtt.client = c
 	return mqtt, nil
 }
 
@@ -89,16 +112,117 @@ func (m *MQTT) Stop() error {
 	return m.client.Disconnect(ctx)
 }
 
+// GetState is the scope's state, with the image the page should show: the
+// observatory's newest sub of the target while it is imaging it, else the
+// survey cutout.
 func (m *MQTT) GetState() ScopeState {
-	return m.state
+	m.stateLock.Lock()
+	defer m.stateLock.Unlock()
+	s := m.state
+	s.ImageURL = m.imageURL()
+	return s
+}
+
+// Frames serves the held public frame; nil when they are off.
+func (m *MQTT) Frames() http.Handler {
+	if m.frames == nil {
+		return nil
+	}
+	return m.frames
+}
+
+// imageURL is the image to show; the caller holds stateLock.
+func (m *MQTT) imageURL() string {
+	if m.frames != nil && m.state.Live {
+		if f, ok := m.frames.Current(m.state.Target); ok {
+			return m.publicURL + "/image.jpg?v=" + url.QueryEscape(f.Version())
+		}
+	}
+	return m.surveyURL
+}
+
+// RunPublicFrames keeps the public frame of the target being imaged
+// current, polling every interval and whenever the target or availability
+// changes, until ctx ends. Nothing is fetched per page request.
+func (m *MQTT) RunPublicFrames(ctx context.Context, interval time.Duration) {
+	if m.frames == nil {
+		return
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		m.stateLock.Lock()
+		target, live := m.state.Target, m.state.Live
+		m.stateLock.Unlock()
+		if live && target != "" {
+			if err := m.frames.Fetch(ctx, target); err != nil && ctx.Err() == nil {
+				slog.Warn("Could not fetch the public frame; showing the survey image", "target", target, "error", err)
+			}
+		} else {
+			m.frames.Clear()
+		}
+		m.publishImageURL(false)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		case <-m.kick:
+		}
+	}
+}
+
+// publishImageURL publishes the image URL to show, if it changed or always.
+func (m *MQTT) publishImageURL(always bool) {
+	m.stateLock.Lock()
+	u := m.imageURL()
+	if !always && u == m.published {
+		m.stateLock.Unlock()
+		return
+	}
+	m.published = u
+	m.stateLock.Unlock()
+	m.publish("/image_url", u)
+}
+
+// publish sends a retained message under the prefix. Retained messages
+// arrive as soon as the subscription is made, so this can run before the
+// client is stored; those publishes are skipped (the next update sends
+// them).
+func (m *MQTT) publish(topic, payload string) {
+	m.clientLock.RLock()
+	c := m.client
+	m.clientLock.RUnlock()
+	if c == nil {
+		return
+	}
+	if _, err := c.Publish(context.Background(), &paho.Publish{
+		Topic:   m.config.MQTT.Prefix + topic,
+		QoS:     1,
+		Retain:  true,
+		Payload: []byte(payload),
+	}); err != nil {
+		slog.Error("failed to publish", "topic", topic, "error", err)
+	}
 }
 
 func (m *MQTT) updateState(topic, payload string) {
+	if !m.applyState(topic, payload) {
+		return
+	}
+	m.publishImageURL(true)
+}
+
+// applyState records one topic's update and works out the survey URL; it
+// reports whether the topic was one of the state's.
+func (m *MQTT) applyState(topic, payload string) bool {
 	m.stateLock.Lock()
 	defer m.stateLock.Unlock()
 
 	switch topic {
 	case m.config.MQTT.Prefix + "/name":
+		if m.state.Target != payload {
+			m.poke()
+		}
 		m.state.Target = payload
 	case m.config.MQTT.Prefix + "/start":
 		start, err := time.Parse(time.RFC3339, payload)
@@ -121,15 +245,7 @@ func (m *MQTT) updateState(topic, payload string) {
 		} else {
 			slog.Error("failed to parse RA", "error", err)
 		}
-		_, err = m.client.Publish(context.Background(), &paho.Publish{
-			Topic:   m.config.MQTT.Prefix + "/ra_decimal_degrees",
-			QoS:     1,
-			Retain:  true,
-			Payload: []byte(fmt.Sprintf("%f", m.state.RightAscension)),
-		})
-		if err != nil {
-			slog.Error("failed to publish RA", "error", err)
-		}
+		m.publish("/ra_decimal_degrees", fmt.Sprintf("%f", m.state.RightAscension))
 	case m.config.MQTT.Prefix + "/dec_decimal":
 		dec, err := strconv.ParseFloat(payload, 64)
 		if err == nil {
@@ -137,19 +253,14 @@ func (m *MQTT) updateState(topic, payload string) {
 		} else {
 			slog.Error("failed to parse DEC", "error", err)
 		}
-		_, err = m.client.Publish(context.Background(), &paho.Publish{
-			Topic:   m.config.MQTT.Prefix + "/dec_decimal_degrees",
-			QoS:     1,
-			Retain:  true,
-			Payload: []byte(fmt.Sprintf("%f", m.state.Declination)),
-		})
-		if err != nil {
-			slog.Error("failed to publish DEC", "error", err)
-		}
+		m.publish("/dec_decimal_degrees", fmt.Sprintf("%f", m.state.Declination))
 	case m.config.MQTT.Prefix + "/available":
+		if live := payload == "true"; live != m.state.Live {
+			m.poke()
+		}
 		m.state.Live = payload == "true"
 	default:
-		return
+		return false
 	}
 
 	queryParams := url.Values{}
@@ -182,16 +293,14 @@ func (m *MQTT) updateState(topic, payload string) {
 		url += "?" + queryString
 	}
 
-	m.state.ImageURL = url
+	m.surveyURL = url
+	return true
+}
 
-	_, err := m.client.Publish(context.Background(), &paho.Publish{
-		Topic:   m.config.MQTT.Prefix + "/image_url",
-		QoS:     1,
-		Retain:  true,
-		Payload: []byte(m.state.ImageURL),
-	})
-	if err != nil {
-		slog.Error("failed to publish image URL", "error", err)
+// poke wakes the frame poller without blocking.
+func (m *MQTT) poke() {
+	select {
+	case m.kick <- struct{}{}:
+	default:
 	}
-
 }

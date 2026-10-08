@@ -16,6 +16,8 @@ var (
 	ErrMaxCutTooSmall     = errors.New("max cut must be greater than 0")
 	ErrMaxCutTooLarge     = errors.New("max cut must be less than 100")
 	ErrMinCutTooLarge     = errors.New("min cut must be less than 100")
+	ErrPublicFrameTiming  = errors.New("public frame interval and timeout must be greater than 0")
+	ErrNoPublicURL        = errors.New("public frames need this service's public URL")
 )
 
 func (c Config) Validate() error {
@@ -97,6 +99,15 @@ func (c Config) Validate() error {
 		c.Image.Stretch != StretchTypeLog &&
 		c.Image.Stretch != StretchTypeAsinh {
 		return ErrInvalidStretch
+	}
+
+	if c.PublicFrame.StackerURL != "" {
+		if c.PublicFrame.IntervalSeconds <= 0 || c.PublicFrame.TimeoutSeconds <= 0 {
+			return ErrPublicFrameTiming
+		}
+		if c.PublicFrame.PublicURL == "" {
+			return ErrNoPublicURL
+		}
 	}
 
 	return nil

@@ -1,11 +1,22 @@
 package config
 
 type Config struct {
-	LogLevel           LogLevel `name:"log-level" description:"Logging level for the application. One of debug, info, warn, or error" default:"info"`
-	Port               int      `name:"port" description:"Port to listen on" default:"8080"`
-	MQTT               MQTT     `name:"mqtt" description:"MQTT configuration"`
-	Image              Image    `name:"image" description:"Image configuration"`
-	CORSAllowedOrigins []string `name:"cors-allowed-origins" description:"CORS allowed origins" default:"https://*,http://*"`
+	LogLevel           LogLevel    `name:"log-level" description:"Logging level for the application. One of debug, info, warn, or error" default:"info"`
+	Port               int         `name:"port" description:"Port to listen on" default:"8080"`
+	MQTT               MQTT        `name:"mqtt" description:"MQTT configuration"`
+	Image              Image       `name:"image" description:"Image configuration"`
+	CORSAllowedOrigins []string    `name:"cors-allowed-origins" description:"CORS allowed origins" default:"https://*,http://*"`
+	PublicFrame        PublicFrame `name:"public-frame" description:"The observatory's own newest sub of the target, from astro-stacker"`
+}
+
+// PublicFrame shows the observatory's newest sub of the target being
+// imaged, as astro-stacker renders it for the public, instead of the survey
+// image. Off without a stacker URL.
+type PublicFrame struct {
+	StackerURL      string `name:"stacker-url" description:"astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images"`
+	PublicURL       string `name:"public-url" description:"This service's public base URL, which the page loads the frame from" default:"https://wheresmyscope.mcswain.dev"`
+	IntervalSeconds int    `name:"interval-seconds" description:"Seconds between checks for a newer frame" default:"60"`
+	TimeoutSeconds  int    `name:"timeout-seconds" description:"Seconds before a fetch from the stacker gives up and the survey image is shown" default:"10"`
 }
 
 type Image struct {

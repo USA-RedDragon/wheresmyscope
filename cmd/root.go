@@ -68,6 +68,8 @@ func runRoot(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create MQTT client: %w", err)
 	}
 
+	go mqtt.RunPublicFrames(serverCtx, time.Duration(cfg.PublicFrame.IntervalSeconds)*time.Second)
+
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		ReadHeaderTimeout: 60 * time.Second,

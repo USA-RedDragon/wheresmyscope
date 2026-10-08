@@ -27,6 +27,8 @@ func TestLogLevelConstants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create default config: %v", err)
 	}
+	// The broker has no default and is required.
+	defConfig.MQTT.Broker = "mqtt://localhost:1883"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -61,6 +63,8 @@ func TestPortValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create default config: %v", err)
 	}
+	// The broker has no default and is required.
+	defConfig.MQTT.Broker = "mqtt://localhost:1883"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -75,5 +79,29 @@ func TestPortValidation(t *testing.T) {
 				t.Errorf("Validate() error = %v, want %v", err, config.ErrInvalidPort)
 			}
 		})
+	}
+}
+
+func TestPublicFrameValidation(t *testing.T) {
+	t.Parallel()
+
+	defConfig, err := configulator.New[config.Config]().Default()
+	if err != nil {
+		t.Fatalf("failed to create default config: %v", err)
+	}
+	defConfig.MQTT.Broker = "mqtt://localhost:1883"
+	defConfig.PublicFrame.StackerURL = "http://astro-stacker.astro-processing:8080"
+	if err := defConfig.Validate(); err != nil {
+		t.Errorf("defaults with a stacker URL: %v", err)
+	}
+	cfg := defConfig
+	cfg.PublicFrame.TimeoutSeconds = 0
+	if err := cfg.Validate(); !errors.Is(err, config.ErrPublicFrameTiming) {
+		t.Errorf("zero timeout: %v", err)
+	}
+	cfg = defConfig
+	cfg.PublicFrame.PublicURL = ""
+	if err := cfg.Validate(); !errors.Is(err, config.ErrNoPublicURL) {
+		t.Errorf("no public URL: %v", err)
 	}
 }
