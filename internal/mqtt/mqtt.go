@@ -73,7 +73,7 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 			ClientID: fmt.Sprintf("%s_%s", config.MQTT.ClientID, uuid.New().String()),
 			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
 				func(pr paho.PublishReceived) (bool, error) {
-					mqtt.updateState(pr.Packet.Topic, string(pr.Packet.Payload))
+					mqtt.updateState(ctx, pr.Packet.Topic, string(pr.Packet.Payload))
 					return true, nil
 				}},
 		},
@@ -158,7 +158,7 @@ func (m *MQTT) RunPublicFrames(ctx context.Context, interval time.Duration) {
 				slog.Warn("Could not fetch the public frame", "target", target, "error", err)
 			}
 		}
-		m.publishImageURL(false)
+		m.publishImageURL(ctx, false)
 		select {
 		case <-ctx.Done():
 			return
@@ -169,7 +169,7 @@ func (m *MQTT) RunPublicFrames(ctx context.Context, interval time.Duration) {
 }
 
 // publishImageURL publishes the image URL to show, if it changed or always.
-func (m *MQTT) publishImageURL(always bool) {
+func (m *MQTT) publishImageURL(ctx context.Context, always bool) {
 	m.stateLock.Lock()
 	u := m.imageURL()
 	if !always && u == m.published {
@@ -178,21 +178,21 @@ func (m *MQTT) publishImageURL(always bool) {
 	}
 	m.published = u
 	m.stateLock.Unlock()
-	m.publish("/image_url", u)
+	m.publish(ctx, "/image_url", u)
 }
 
 // publish sends a retained message under the prefix. Retained messages
 // arrive as soon as the subscription is made, so this can run before the
 // client is stored; those publishes are skipped (the next update sends
 // them).
-func (m *MQTT) publish(topic, payload string) {
+func (m *MQTT) publish(ctx context.Context, topic, payload string) {
 	m.clientLock.RLock()
 	c := m.client
 	m.clientLock.RUnlock()
 	if c == nil {
 		return
 	}
-	if _, err := c.Publish(context.Background(), &paho.Publish{
+	if _, err := c.Publish(ctx, &paho.Publish{
 		Topic:   m.config.MQTT.Prefix + topic,
 		QoS:     1,
 		Retain:  true,
@@ -202,16 +202,16 @@ func (m *MQTT) publish(topic, payload string) {
 	}
 }
 
-func (m *MQTT) updateState(topic, payload string) {
-	if !m.applyState(topic, payload) {
+func (m *MQTT) updateState(ctx context.Context, topic, payload string) {
+	if !m.applyState(ctx, topic, payload) {
 		return
 	}
-	m.publishImageURL(true)
+	m.publishImageURL(ctx, true)
 }
 
 // applyState records one topic's update and works out the survey URL; it
 // reports whether the topic was one of the state's.
-func (m *MQTT) applyState(topic, payload string) bool {
+func (m *MQTT) applyState(ctx context.Context, topic, payload string) bool {
 	m.stateLock.Lock()
 	defer m.stateLock.Unlock()
 
@@ -242,7 +242,7 @@ func (m *MQTT) applyState(topic, payload string) bool {
 		} else {
 			slog.Error("failed to parse RA", "error", err)
 		}
-		m.publish("/ra_decimal_degrees", fmt.Sprintf("%f", m.state.RightAscension))
+		m.publish(ctx, "/ra_decimal_degrees", fmt.Sprintf("%f", m.state.RightAscension))
 	case m.config.MQTT.Prefix + "/dec_decimal":
 		dec, err := strconv.ParseFloat(payload, 64)
 		if err == nil {
@@ -250,7 +250,7 @@ func (m *MQTT) applyState(topic, payload string) bool {
 		} else {
 			slog.Error("failed to parse DEC", "error", err)
 		}
-		m.publish("/dec_decimal_degrees", fmt.Sprintf("%f", m.state.Declination))
+		m.publish(ctx, "/dec_decimal_degrees", fmt.Sprintf("%f", m.state.Declination))
 	case m.config.MQTT.Prefix + "/available":
 		if live := payload == "true"; live != m.state.Live {
 			m.poke()

@@ -21,10 +21,7 @@ var (
 )
 
 func (c Config) Validate() error {
-	if c.LogLevel != LogLevelDebug &&
-		c.LogLevel != LogLevelInfo &&
-		c.LogLevel != LogLevelWarn &&
-		c.LogLevel != LogLevelError {
+	if !c.LogLevel.valid() {
 		return ErrInvalidLogLevel
 	}
 
@@ -64,40 +61,15 @@ func (c Config) Validate() error {
 		return ErrMinCutTooLarge
 	}
 
-	if c.Image.Projection != ProjectionZenithalPerspective &&
-		c.Image.Projection != ProjectionSlantZenithalPerspective &&
-		c.Image.Projection != ProjectionTangential &&
-		c.Image.Projection != ProjectionStereographic &&
-		c.Image.Projection != ProjectionOrthographic &&
-		c.Image.Projection != ProjectionAzimuthalEquidistant &&
-		c.Image.Projection != ProjectionZenithalEqualArea &&
-		c.Image.Projection != ProjectionAiry &&
-		c.Image.Projection != ProjectionCylindricalPerspective &&
-		c.Image.Projection != ProjectionCylindricalEqualArea &&
-		c.Image.Projection != ProjectionPlateCarree &&
-		c.Image.Projection != ProjectionMercator &&
-		c.Image.Projection != ProjectionSansonFlamsteed &&
-		c.Image.Projection != ProjectionParabolic &&
-		c.Image.Projection != ProjectionMollweide &&
-		c.Image.Projection != ProjectionHammerAitoff &&
-		c.Image.Projection != ProjectionTangentialSphericalCube &&
-		c.Image.Projection != ProjectionQuadrilateralizedSphericalCube &&
-		c.Image.Projection != ProjectionHEALPix &&
-		c.Image.Projection != ProjectionHealPixPolarButterfly {
+	if !c.Image.Projection.valid() {
 		return ErrInvalidProjection
 	}
 
-	if c.Image.Format != ImageFormatPNG &&
-		c.Image.Format != ImageFormatJPEG &&
-		c.Image.Format != ImageFormatFITS {
+	if !c.Image.Format.valid() {
 		return ErrInvalidImageFormat
 	}
 
-	if c.Image.Stretch != StretchTypePower &&
-		c.Image.Stretch != StretchTypeLinear &&
-		c.Image.Stretch != StretchTypeSqrt &&
-		c.Image.Stretch != StretchTypeLog &&
-		c.Image.Stretch != StretchTypeAsinh {
+	if !c.Image.Stretch.valid() {
 		return ErrInvalidStretch
 	}
 
@@ -111,4 +83,68 @@ func (c Config) Validate() error {
 	}
 
 	return nil
+}
+
+func (l LogLevel) valid() bool {
+	switch l {
+	case
+		LogLevelDebug,
+		LogLevelInfo,
+		LogLevelWarn,
+		LogLevelError:
+		return true
+	}
+	return false
+}
+
+func (p ProjectionType) valid() bool {
+	switch p {
+	case
+		ProjectionZenithalPerspective,
+		ProjectionSlantZenithalPerspective,
+		ProjectionTangential,
+		ProjectionStereographic,
+		ProjectionOrthographic,
+		ProjectionAzimuthalEquidistant,
+		ProjectionZenithalEqualArea,
+		ProjectionAiry,
+		ProjectionCylindricalPerspective,
+		ProjectionCylindricalEqualArea,
+		ProjectionPlateCarree,
+		ProjectionMercator,
+		ProjectionSansonFlamsteed,
+		ProjectionParabolic,
+		ProjectionMollweide,
+		ProjectionHammerAitoff,
+		ProjectionTangentialSphericalCube,
+		ProjectionQuadrilateralizedSphericalCube,
+		ProjectionHEALPix,
+		ProjectionHealPixPolarButterfly:
+		return true
+	}
+	return false
+}
+
+func (f ImageFormat) valid() bool {
+	switch f {
+	case
+		ImageFormatPNG,
+		ImageFormatJPEG,
+		ImageFormatFITS:
+		return true
+	}
+	return false
+}
+
+func (s StretchType) valid() bool {
+	switch s {
+	case
+		StretchTypePower,
+		StretchTypeLinear,
+		StretchTypeSqrt,
+		StretchTypeLog,
+		StretchTypeAsinh:
+		return true
+	}
+	return false
 }

@@ -16,7 +16,7 @@ import (
 type contextKey uint8
 
 const (
-	MQTT_ContextKey contextKey = iota
+	MQTTContextKey contextKey = iota
 )
 
 func NewRouter(cfg *config.Config, mqttClient *mqtt.MQTT) *chi.Mux {
@@ -35,14 +35,14 @@ func NewRouter(cfg *config.Config, mqttClient *mqtt.MQTT) *chi.Mux {
 	// Pass the MQTT client to the context under the key "mqtt"
 	r.Use(func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r = r.WithContext(context.WithValue(r.Context(), MQTT_ContextKey, mqttClient))
+			r = r.WithContext(context.WithValue(r.Context(), MQTTContextKey, mqttClient))
 			h.ServeHTTP(w, r)
 		})
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		// Lets get mqtt from the context
-		mqtt, ok := r.Context().Value(MQTT_ContextKey).(*mqtt.MQTT)
+		mqtt, ok := r.Context().Value(MQTTContextKey).(*mqtt.MQTT)
 		if !ok {
 			http.Error(w, "MQTT client not found in context", http.StatusInternalServerError)
 			return

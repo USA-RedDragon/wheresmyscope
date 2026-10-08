@@ -82,18 +82,18 @@ func TestFetch(t *testing.T) {
 func TestServe(t *testing.T) {
 	f := New("http://unused", time.Second)
 	rec := httptest.NewRecorder()
-	f.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/image.jpg", nil))
+	f.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/image.jpg", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("no frame: %d", rec.Code)
 	}
 	f.set(&Frame{Object: "Orion", ETag: `"abc"`, Body: []byte("jpeg")}, true)
 	rec = httptest.NewRecorder()
-	f.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/image.jpg?v=abc", nil))
+	f.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/image.jpg?v=abc", nil))
 	if rec.Code != http.StatusOK || rec.Body.String() != "jpeg" || rec.Header().Get("Content-Type") != "image/jpeg" ||
 		rec.Header().Get("Cache-Control") != "public, max-age=86400, immutable" {
 		t.Errorf("served %d %q %v", rec.Code, rec.Body.String(), rec.Header())
 	}
-	req := httptest.NewRequest(http.MethodGet, "/image.jpg?v=old", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/image.jpg?v=old", nil)
 	req.Header.Set("If-None-Match", `"abc"`)
 	rec = httptest.NewRecorder()
 	f.ServeHTTP(rec, req)

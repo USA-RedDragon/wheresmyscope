@@ -29,7 +29,7 @@ func TestImageURL(t *testing.T) {
 	m := &MQTT{config: cfg, kick: make(chan struct{}, 1),
 		frames: publicframe.New(stacker.URL, time.Second), publicURL: "https://wheresmyscope.example"}
 	for topic, payload := range map[string]string{"p/name": "Orion", "p/ra_decimal": "5.588", "p/dec_decimal": "-5.39"} {
-		m.applyState(topic, payload)
+		m.applyState(t.Context(), topic, payload)
 	}
 	survey := m.GetState().ImageURL
 	if !strings.HasPrefix(survey, "https://alaskybis.u-strasbg.fr/") {
@@ -42,11 +42,11 @@ func TestImageURL(t *testing.T) {
 	if got := m.GetState().ImageURL; got != want {
 		t.Errorf("not imaging, image %q, want %q", got, want)
 	}
-	m.applyState("p/available", "true")
+	m.applyState(t.Context(), "p/available", "true")
 	if got := m.GetState().ImageURL; got != want {
 		t.Errorf("imaging Orion, image %q, want %q", got, want)
 	}
-	m.applyState("p/name", "M 31")
+	m.applyState(t.Context(), "p/name", "M 31")
 	if got := m.GetState().ImageURL; strings.Contains(got, "wheresmyscope.example") {
 		t.Errorf("target changed, still showing Orion's frame: %q", got)
 	}
