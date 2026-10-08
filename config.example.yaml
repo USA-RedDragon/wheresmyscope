@@ -1,75 +1,49 @@
-# This is an example configuration file
-
-# Log level can be one of debug, info, warn, error. Defaults to info.
-# log-level: info
-
-# The port to listen on for incoming connections. Defaults to 8080.
-# port: 8080
-
-# CORS configuration. Defaults to allow all origins.
-# cors-allowed-origins: 
-  # - http://localhost:3000
-  # - http://example.com
-
-# Image URL configuration for HiPS2FITS
-# image:
-  # HiPS survey to use. Defaults to CDS/P/DSS2/color
-  # hips: "CDS/P/DSS2/color"
-
-  # Field of view in degrees. Defaults to 3.3
-  # fov: 3.3
-
-  # Projection type. Can be one of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH. Defaults to STG.
-  # projection: STG
-
-  # Format of the image. Can be one of png, jpeg, or fits. Defaults to png.
-  # format: png
-
-  # Width of the image in pixels. Defaults to 900.
-  # width: 900
-
-  # Height of the image in pixels. Defaults to 600.
-  # height: 600
-
-  # Stretch type. Only valid for png and jpeg formats. Can be one of power, linear, sqrt, log, or asinh. Defaults to linear.
-  # stretch: linear
-
-  # Minimum value for the stretch between 0 and 100. Only valid for png and jpeg formats. Defaults to 0.5
-  # min-cut: 0.5
-
-  # Maximum value for the stretch between 0 and 100. Only valid for png and jpeg formats. Defaults to 99.5
-  # max-cut: 99.5
-
-# MQTT broker configuration
-# mqtt:
-  # MQTT client ID to use when connecting to the broker. Defaults to wheresmyscope.
-  # client-id: wheresmyscope
-  
-  # MQTT prefix to use for all topics. Defaults to wheresmyscope.
-  # prefix: wheresmyscope
-
-  # MQTT server address. Required
-  # broker: mqtt://mqtt.eclipse.org:1883
-
-  # MQTT server username
-  # username: wheresmyscope
-
-  # MQTT server password
-  # password: thisisabadpassword
-
-# The observatory's own newest sub of the target, instead of the survey image,
-# while it is imaging that target. astro-stacker renders it (small, stretched,
-# watermarked); this service polls it in the background, caches it, and serves
-# it at /image.jpg. Any error or timeout falls back to the survey image.
-# public-frame:
-  # astro-stacker's base URL. Empty (the default) shows only survey images.
-  # stacker-url: http://astro-stacker.astro-processing:8080
-
-  # This service's public base URL, which the page loads the frame from.
-  # public-url: https://wheresmyscope.mcswain.dev
-
-  # Seconds between checks for a newer frame. Defaults to 60.
-  # interval-seconds: 60
-
-  # Seconds before a fetch gives up. Defaults to 10.
-  # timeout-seconds: 10
+# Sample configuration for Config.
+# Logging level for the application. One of debug, info, warn, or error
+log-level: "info"
+# Port to listen on
+port: 8080
+# MQTT configuration
+mqtt:
+  # MQTT broker address, e.g. mqtt://mqtt.example.com:1883. Required
+  # broker: ""
+  # Client ID for MQTT connection
+  client-id: "wheresmyscope"
+  # Prefix for MQTT topics
+  prefix: "wheresmyscope"
+  # Username for MQTT connection
+  # username: ""
+  # Password for MQTT connection
+  # password: "(secret)"
+# Image configuration
+image:
+  # Projection type. One of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH
+  projection: "STG"
+  # Field of view in degrees
+  fov: 3.3
+  # Image format. One of png, jpeg, or fits
+  format: "png"
+  # Image width in pixels
+  width: 900
+  # Image height in pixels
+  height: 600
+  # Stretch type for png and jpeg images. One of power, linear, sqrt, log, or asinh
+  stretch: "linear"
+  # Minimum value for the stretch, between 0 and 100. Only used for png and jpeg images
+  min-cut: 0.5
+  # Maximum value for the stretch, between 0 and 100. Only used for png and jpeg images
+  max-cut: 99.5
+  # HiPS survey to render the image from
+  hips: "CDS/P/DSS2/color"
+# CORS allowed origins
+cors-allowed-origins: [https://*,http://*]
+# The observatory's own newest sub of the target, from astro-stacker
+public-frame:
+  # astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images
+  # stacker-url: ""
+  # This service's public base URL, which the page loads the frame from
+  public-url: "https://wheresmyscope.mcswain.dev"
+  # Seconds between checks for a newer frame
+  interval-seconds: 60
+  # Seconds before a fetch from the stacker gives up and the survey image is shown
+  timeout-seconds: 10

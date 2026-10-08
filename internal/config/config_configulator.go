@@ -11,6 +11,7 @@ import (
 	configulator "github.com/USA-RedDragon/configulator/v2"
 	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
 	"github.com/spf13/pflag"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -56,7 +57,7 @@ func ConfigSchema() *configulator.Schema[Config] {
 		DecodeFile:    configDecodeFile,
 	}
 }
-func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
+func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) error {
 	cfg.LogLevel = LogLevel("info")
 	set("log-level", configulator.LayerDefault, "default tag")
 	cfg.Port = 8080
@@ -83,8 +84,11 @@ func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
 	set("image.max-cut", configulator.LayerDefault, "default tag")
 	cfg.Image.HiPS = "CDS/P/DSS2/color"
 	set("image.hips", configulator.LayerDefault, "default tag")
-	cfg.CORSAllowedOrigins = []string{"https://*", "http://*"}
-	set("cors-allowed-origins", configulator.LayerDefault, "default tag")
+	{
+		lst := configulator.SplitList("https://*,http://*", sep)
+		cfg.CORSAllowedOrigins = lst
+		set("cors-allowed-origins", configulator.LayerDefault, "default tag")
+	}
 	cfg.PublicFrame.PublicURL = "https://wheresmyscope.mcswain.dev"
 	set("public-frame.public-url", configulator.LayerDefault, "default tag")
 	cfg.PublicFrame.IntervalSeconds = 60
@@ -93,7 +97,7 @@ func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
 	set("public-frame.timeout-seconds", configulator.LayerDefault, "default tag")
 	return nil
 }
-func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, set configulator.SetOrigin, file string) error {
+func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, sep string, set configulator.SetOrigin, file string) error {
 	var sh configShadow
 	if err := u(data, &sh); err != nil {
 		return &configulator.DecodeError{
@@ -101,9 +105,9 @@ func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, set co
 			Path: file,
 		}
 	}
-	return sh.applyTo(cfg, set, file)
+	return sh.applyTo(cfg, sep, set, file)
 }
-func (s *configShadow) applyTo(cfg *Config, set configulator.SetOrigin, file string) error {
+func (s *configShadow) applyTo(cfg *Config, sep string, set configulator.SetOrigin, file string) error {
 	if s.LogLevel != nil {
 		cfg.LogLevel = LogLevel(*s.LogLevel)
 		set("log-level", configulator.LayerFile, file)
@@ -349,7 +353,8 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 	}
 	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "cors-allowed-origins"); true {
 		if v, ok := ec.Getenv(n); ok {
-			cfg.CORSAllowedOrigins = configulator.SplitList(v, ec.ArraySeparator)
+			lst := configulator.SplitList(v, ec.ArraySeparator)
+			cfg.CORSAllowedOrigins = lst
 			set("cors-allowed-origins", configulator.LayerEnv, n)
 		}
 	}
@@ -406,35 +411,40 @@ func ConfigPFlagHooks() cpflag.Hooks[Config] {
 	}
 }
 func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
-	for _, name := range []string{strings.Join([]string{"log-level"}, o.Separator), strings.Join([]string{"port"}, o.Separator), strings.Join([]string{"mqtt", "broker"}, o.Separator), strings.Join([]string{"mqtt", "client-id"}, o.Separator), strings.Join([]string{"mqtt", "prefix"}, o.Separator), strings.Join([]string{"mqtt", "username"}, o.Separator), strings.Join([]string{"mqtt", "password"}, o.Separator), strings.Join([]string{"image", "projection"}, o.Separator), strings.Join([]string{"image", "fov"}, o.Separator), strings.Join([]string{"image", "format"}, o.Separator), strings.Join([]string{"image", "width"}, o.Separator), strings.Join([]string{"image", "height"}, o.Separator), strings.Join([]string{"image", "stretch"}, o.Separator), strings.Join([]string{"image", "min-cut"}, o.Separator), strings.Join([]string{"image", "max-cut"}, o.Separator), strings.Join([]string{"image", "hips"}, o.Separator), strings.Join([]string{"cors-allowed-origins"}, o.Separator), strings.Join([]string{"public-frame", "stacker-url"}, o.Separator), strings.Join([]string{"public-frame", "public-url"}, o.Separator), strings.Join([]string{"public-frame", "interval-seconds"}, o.Separator), strings.Join([]string{"public-frame", "timeout-seconds"}, o.Separator)} {
-		if fs.Lookup(name) != nil {
-			return fmt.Errorf("flag --%s already registered on this FlagSet", name)
+	names := []string{strings.Join([]string{"log-level"}, o.Separator), strings.Join([]string{"port"}, o.Separator), strings.Join([]string{"mqtt", "broker"}, o.Separator), strings.Join([]string{"mqtt", "client-id"}, o.Separator), strings.Join([]string{"mqtt", "prefix"}, o.Separator), strings.Join([]string{"mqtt", "username"}, o.Separator), strings.Join([]string{"mqtt", "password"}, o.Separator), strings.Join([]string{"image", "projection"}, o.Separator), strings.Join([]string{"image", "fov"}, o.Separator), strings.Join([]string{"image", "format"}, o.Separator), strings.Join([]string{"image", "width"}, o.Separator), strings.Join([]string{"image", "height"}, o.Separator), strings.Join([]string{"image", "stretch"}, o.Separator), strings.Join([]string{"image", "min-cut"}, o.Separator), strings.Join([]string{"image", "max-cut"}, o.Separator), strings.Join([]string{"image", "hips"}, o.Separator), strings.Join([]string{"cors-allowed-origins"}, o.Separator), strings.Join([]string{"public-frame", "stacker-url"}, o.Separator), strings.Join([]string{"public-frame", "public-url"}, o.Separator), strings.Join([]string{"public-frame", "interval-seconds"}, o.Separator), strings.Join([]string{"public-frame", "timeout-seconds"}, o.Separator)}
+	for i, name := range names {
+		if fs.Lookup(name) != nil || slices.Contains(names[:i], name) {
+			return &configulator.FlagConflictError{
+				Existing: name,
+				Flag:     name,
+			}
 		}
 	}
-	fs.String(strings.Join([]string{"log-level"}, o.Separator), "info", "Logging level for the application. One of debug, info, warn, or error")
-	fs.Int(strings.Join([]string{"port"}, o.Separator), 8080, "Port to listen on")
-	fs.String(strings.Join([]string{"mqtt", "broker"}, o.Separator), "", "MQTT broker address")
-	fs.String(strings.Join([]string{"mqtt", "client-id"}, o.Separator), "wheresmyscope", "Client ID for MQTT connection")
-	fs.String(strings.Join([]string{"mqtt", "prefix"}, o.Separator), "wheresmyscope", "Prefix for MQTT topics")
-	fs.String(strings.Join([]string{"mqtt", "username"}, o.Separator), "", "Username for MQTT connection")
-	fs.String(strings.Join([]string{"mqtt", "password"}, o.Separator), "", "Password for MQTT connection")
-	fs.String(strings.Join([]string{"image", "projection"}, o.Separator), "STG", "Projection type")
-	fs.Float64(strings.Join([]string{"image", "fov"}, o.Separator), 3.3, "Field of view in degrees")
-	fs.String(strings.Join([]string{"image", "format"}, o.Separator), "png", "Image format")
-	fs.Int(strings.Join([]string{"image", "width"}, o.Separator), 900, "Image width in pixels")
-	fs.Int(strings.Join([]string{"image", "height"}, o.Separator), 600, "Image height in pixels")
-	fs.String(strings.Join([]string{"image", "stretch"}, o.Separator), "linear", "Stretch type")
-	fs.Float64(strings.Join([]string{"image", "min-cut"}, o.Separator), 0.5, "Minimum cut value for image processing")
-	fs.Float64(strings.Join([]string{"image", "max-cut"}, o.Separator), 99.5, "Maximum cut value for image processing")
-	fs.String(strings.Join([]string{"image", "hips"}, o.Separator), "CDS/P/DSS2/color", "HIPS name for the image")
-	fs.StringSlice(strings.Join([]string{"cors-allowed-origins"}, o.Separator), []string{"https://*", "http://*"}, "CORS allowed origins")
-	fs.String(strings.Join([]string{"public-frame", "stacker-url"}, o.Separator), "", "astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images")
-	fs.String(strings.Join([]string{"public-frame", "public-url"}, o.Separator), "https://wheresmyscope.mcswain.dev", "This service's public base URL, which the page loads the frame from")
-	fs.Int(strings.Join([]string{"public-frame", "interval-seconds"}, o.Separator), 60, "Seconds between checks for a newer frame")
-	fs.Int(strings.Join([]string{"public-frame", "timeout-seconds"}, o.Separator), 10, "Seconds before a fetch from the stacker gives up and the survey image is shown")
+	fs.String(names[0], "info", "Logging level for the application. One of debug, info, warn, or error")
+	fs.Int(names[1], 8080, "Port to listen on")
+	fs.String(names[2], "", "MQTT broker address, e.g. mqtt://mqtt.example.com:1883. Required")
+	fs.String(names[3], "wheresmyscope", "Client ID for MQTT connection")
+	fs.String(names[4], "wheresmyscope", "Prefix for MQTT topics")
+	fs.String(names[5], "", "Username for MQTT connection")
+	fs.String(names[6], "", "Password for MQTT connection")
+	fs.String(names[7], "STG", "Projection type. One of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH")
+	fs.Float64(names[8], 3.3, "Field of view in degrees")
+	fs.String(names[9], "png", "Image format. One of png, jpeg, or fits")
+	fs.Int(names[10], 900, "Image width in pixels")
+	fs.Int(names[11], 600, "Image height in pixels")
+	fs.String(names[12], "linear", "Stretch type for png and jpeg images. One of power, linear, sqrt, log, or asinh")
+	fs.Float64(names[13], 0.5, "Minimum value for the stretch, between 0 and 100. Only used for png and jpeg images")
+	fs.Float64(names[14], 99.5, "Maximum value for the stretch, between 0 and 100. Only used for png and jpeg images")
+	fs.String(names[15], "CDS/P/DSS2/color", "HiPS survey to render the image from")
+	fs.StringSlice(names[16], nil, "CORS allowed origins")
+	fs.Lookup(names[16]).DefValue = "[https://*,http://*]"
+	fs.String(names[17], "", "astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images")
+	fs.String(names[18], "https://wheresmyscope.mcswain.dev", "This service's public base URL, which the page loads the frame from")
+	fs.Int(names[19], 60, "Seconds between checks for a newer frame")
+	fs.Int(names[20], 10, "Seconds before a fetch from the stacker gives up and the survey image is shown")
 	return nil
 }
-func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, set configulator.SetOrigin) error {
+func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep string, set configulator.SetOrigin) error {
 	if n := strings.Join([]string{"log-level"}, o.Separator); fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {

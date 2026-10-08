@@ -22,19 +22,19 @@ type PublicFrame struct {
 }
 
 type Image struct {
-	Projection ProjectionType `name:"projection" description:"Projection type" default:"STG"`
+	Projection ProjectionType `name:"projection" description:"Projection type. One of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH" default:"STG"`
 	FOV        float64        `name:"fov" description:"Field of view in degrees" default:"3.3"`
-	Format     ImageFormat    `name:"format" description:"Image format" default:"png"`
+	Format     ImageFormat    `name:"format" description:"Image format. One of png, jpeg, or fits" default:"png"`
 	Width      int            `name:"width" description:"Image width in pixels" default:"900"`
 	Height     int            `name:"height" description:"Image height in pixels" default:"600"`
-	Stretch    StretchType    `name:"stretch" description:"Stretch type" default:"linear"`
-	MinCut     float64        `name:"min-cut" description:"Minimum cut value for image processing" default:"0.5"`
-	MaxCut     float64        `name:"max-cut" description:"Maximum cut value for image processing" default:"99.5"`
-	HiPS       string         `name:"hips" description:"HIPS name for the image" default:"CDS/P/DSS2/color"`
+	Stretch    StretchType    `name:"stretch" description:"Stretch type for png and jpeg images. One of power, linear, sqrt, log, or asinh" default:"linear"`
+	MinCut     float64        `name:"min-cut" description:"Minimum value for the stretch, between 0 and 100. Only used for png and jpeg images" default:"0.5"`
+	MaxCut     float64        `name:"max-cut" description:"Maximum value for the stretch, between 0 and 100. Only used for png and jpeg images" default:"99.5"`
+	HiPS       string         `name:"hips" description:"HiPS survey to render the image from" default:"CDS/P/DSS2/color"`
 }
 
 type MQTT struct {
-	Broker   string `name:"broker" description:"MQTT broker address"`
+	Broker   string `name:"broker" description:"MQTT broker address, e.g. mqtt://mqtt.example.com:1883. Required"`
 	ClientID string `name:"client-id" description:"Client ID for MQTT connection" default:"wheresmyscope"`
 	Prefix   string `name:"prefix" description:"Prefix for MQTT topics" default:"wheresmyscope"`
 	Username string `name:"username" description:"Username for MQTT connection"`
