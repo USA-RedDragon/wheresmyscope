@@ -5,48 +5,55 @@
 package config
 
 import (
-	jsontext "encoding/json/jsontext"
-	v2 "encoding/json/v2"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"errors"
 	"fmt"
-	configulator "github.com/USA-RedDragon/configulator/v2"
-	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
-	"github.com/spf13/pflag"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/USA-RedDragon/configulator/v2"
+	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
+	"github.com/USA-RedDragon/configulator/v2/impl"
+	"github.com/spf13/pflag"
 )
 
 type mQTTShadow struct {
-	Broker   *string `json:"broker" toml:"broker" yaml:"broker"`
+	Broker   *string `json:"broker"    toml:"broker"    yaml:"broker"`
 	ClientID *string `json:"client-id" toml:"client-id" yaml:"client-id"`
-	Prefix   *string `json:"prefix" toml:"prefix" yaml:"prefix"`
-	Username *string `json:"username" toml:"username" yaml:"username"`
-	Password *string `json:"password" toml:"password" yaml:"password"`
+	Prefix   *string `json:"prefix"    toml:"prefix"    yaml:"prefix"`
+	Username *string `json:"username"  toml:"username"  yaml:"username"`
+	Password *string `json:"password"  toml:"password"  yaml:"password"`
 }
+
 type imageShadow struct {
 	Projection *string  `json:"projection" toml:"projection" yaml:"projection"`
-	FOV        *float64 `json:"fov" toml:"fov" yaml:"fov"`
-	Format     *string  `json:"format" toml:"format" yaml:"format"`
-	Width      *int     `json:"width" toml:"width" yaml:"width"`
-	Height     *int     `json:"height" toml:"height" yaml:"height"`
-	Stretch    *string  `json:"stretch" toml:"stretch" yaml:"stretch"`
-	MinCut     *float64 `json:"min-cut" toml:"min-cut" yaml:"min-cut"`
-	MaxCut     *float64 `json:"max-cut" toml:"max-cut" yaml:"max-cut"`
-	HiPS       *string  `json:"hips" toml:"hips" yaml:"hips"`
+	FOV        *float64 `json:"fov"        toml:"fov"        yaml:"fov"`
+	Format     *string  `json:"format"     toml:"format"     yaml:"format"`
+	Width      *int     `json:"width"      toml:"width"      yaml:"width"`
+	Height     *int     `json:"height"     toml:"height"     yaml:"height"`
+	Stretch    *string  `json:"stretch"    toml:"stretch"    yaml:"stretch"`
+	MinCut     *float64 `json:"min-cut"    toml:"min-cut"    yaml:"min-cut"`
+	MaxCut     *float64 `json:"max-cut"    toml:"max-cut"    yaml:"max-cut"`
+	HiPS       *string  `json:"hips"       toml:"hips"       yaml:"hips"`
 }
+
 type publicFrameShadow struct {
-	StackerURL      *string `json:"stacker-url" toml:"stacker-url" yaml:"stacker-url"`
-	PublicURL       *string `json:"public-url" toml:"public-url" yaml:"public-url"`
+	StackerURL      *string `json:"stacker-url"      toml:"stacker-url"      yaml:"stacker-url"`
+	PublicURL       *string `json:"public-url"       toml:"public-url"       yaml:"public-url"`
 	IntervalSeconds *int    `json:"interval-seconds" toml:"interval-seconds" yaml:"interval-seconds"`
-	TimeoutSeconds  *int    `json:"timeout-seconds" toml:"timeout-seconds" yaml:"timeout-seconds"`
+	TimeoutSeconds  *int    `json:"timeout-seconds"  toml:"timeout-seconds"  yaml:"timeout-seconds"`
 }
+
 type configShadow struct {
-	LogLevel           *string            `json:"log-level" toml:"log-level" yaml:"log-level"`
-	Port               *int               `json:"port" toml:"port" yaml:"port"`
-	MQTT               *mQTTShadow        `json:"mqtt" toml:"mqtt" yaml:"mqtt"`
-	Image              *imageShadow       `json:"image" toml:"image" yaml:"image"`
+	LogLevel           *string            `json:"log-level"            toml:"log-level"            yaml:"log-level"`
+	Port               *int               `json:"port"                 toml:"port"                 yaml:"port"`
+	MQTT               *mQTTShadow        `json:"mqtt"                 toml:"mqtt"                 yaml:"mqtt"`
+	Image              *imageShadow       `json:"image"                toml:"image"                yaml:"image"`
 	CORSAllowedOrigins *[]string          `json:"cors-allowed-origins" toml:"cors-allowed-origins" yaml:"cors-allowed-origins"`
-	PublicFrame        *publicFrameShadow `json:"public-frame" toml:"public-frame" yaml:"public-frame"`
+	PublicFrame        *publicFrameShadow `json:"public-frame"         toml:"public-frame"         yaml:"public-frame"`
 }
 
 // ConfigSchema returns the generated schema for Config.
@@ -57,6 +64,7 @@ func ConfigSchema() *configulator.Schema[Config] {
 		DecodeFile:    configDecodeFile,
 	}
 }
+
 func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) error {
 	cfg.LogLevel = LogLevel("info")
 	set("log-level", configulator.LayerDefault, "default tag")
@@ -85,7 +93,7 @@ func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) er
 	cfg.Image.HiPS = "CDS/P/DSS2/color"
 	set("image.hips", configulator.LayerDefault, "default tag")
 	{
-		lst := configulator.SplitList("https://*,http://*", sep)
+		lst := impl.SplitList("https://*,http://*", sep)
 		cfg.CORSAllowedOrigins = lst
 		set("cors-allowed-origins", configulator.LayerDefault, "default tag")
 	}
@@ -97,6 +105,7 @@ func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) er
 	set("public-frame.timeout-seconds", configulator.LayerDefault, "default tag")
 	return nil
 }
+
 func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, sep string, set configulator.SetOrigin, file string) error {
 	var sh configShadow
 	if err := u(data, &sh); err != nil {
@@ -107,7 +116,8 @@ func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, sep st
 	}
 	return sh.applyTo(cfg, sep, set, file)
 }
-func (s *configShadow) applyTo(cfg *Config, sep string, set configulator.SetOrigin, file string) error {
+
+func (s *configShadow) applyTo(cfg *Config, _ string, set configulator.SetOrigin, file string) error {
 	if s.LogLevel != nil {
 		cfg.LogLevel = LogLevel(*s.LogLevel)
 		set("log-level", configulator.LayerFile, file)
@@ -200,205 +210,164 @@ func (s *configShadow) applyTo(cfg *Config, sep string, set configulator.SetOrig
 	}
 	return nil
 }
+
 func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.SetOrigin) error {
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "log-level"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.LogLevel = LogLevel(v)
-			set("log-level", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "log-level"); ok {
+		cfg.LogLevel = LogLevel(v)
+		set("log-level", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "port"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "port",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "port"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "port",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Port = int(p)
-			set("port", configulator.LayerEnv, n)
 		}
+		cfg.Port = int(p)
+		set("port", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "broker"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.MQTT.Broker = v
-			set("mqtt.broker", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "broker"); ok {
+		cfg.MQTT.Broker = v
+		set("mqtt.broker", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "client-id"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.MQTT.ClientID = v
-			set("mqtt.client-id", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "client-id"); ok {
+		cfg.MQTT.ClientID = v
+		set("mqtt.client-id", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "prefix"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.MQTT.Prefix = v
-			set("mqtt.prefix", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "prefix"); ok {
+		cfg.MQTT.Prefix = v
+		set("mqtt.prefix", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "username"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.MQTT.Username = v
-			set("mqtt.username", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "username"); ok {
+		cfg.MQTT.Username = v
+		set("mqtt.username", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "password"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.MQTT.Password = v
-			set("mqtt.password", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "mqtt", "password"); ok {
+		cfg.MQTT.Password = v
+		set("mqtt.password", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "projection"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Image.Projection = ProjectionType(v)
-			set("image.projection", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "projection"); ok {
+		cfg.Image.Projection = ProjectionType(v)
+		set("image.projection", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "fov"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseFloat(v, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "image.fov",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "fov"); ok {
+		p, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "image.fov",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Image.FOV = p
-			set("image.fov", configulator.LayerEnv, n)
 		}
+		cfg.Image.FOV = p
+		set("image.fov", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "format"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Image.Format = ImageFormat(v)
-			set("image.format", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "format"); ok {
+		cfg.Image.Format = ImageFormat(v)
+		set("image.format", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "width"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "image.width",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "width"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "image.width",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Image.Width = int(p)
-			set("image.width", configulator.LayerEnv, n)
 		}
+		cfg.Image.Width = int(p)
+		set("image.width", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "height"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "image.height",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "height"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "image.height",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Image.Height = int(p)
-			set("image.height", configulator.LayerEnv, n)
 		}
+		cfg.Image.Height = int(p)
+		set("image.height", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "stretch"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Image.Stretch = StretchType(v)
-			set("image.stretch", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "stretch"); ok {
+		cfg.Image.Stretch = StretchType(v)
+		set("image.stretch", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "min-cut"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseFloat(v, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "image.min-cut",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "min-cut"); ok {
+		p, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "image.min-cut",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Image.MinCut = p
-			set("image.min-cut", configulator.LayerEnv, n)
 		}
+		cfg.Image.MinCut = p
+		set("image.min-cut", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "max-cut"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseFloat(v, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "image.max-cut",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "max-cut"); ok {
+		p, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "image.max-cut",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Image.MaxCut = p
-			set("image.max-cut", configulator.LayerEnv, n)
 		}
+		cfg.Image.MaxCut = p
+		set("image.max-cut", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "image", "hips"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Image.HiPS = v
-			set("image.hips", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "image", "hips"); ok {
+		cfg.Image.HiPS = v
+		set("image.hips", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "cors-allowed-origins"); true {
-		if v, ok := ec.Getenv(n); ok {
-			lst := configulator.SplitList(v, ec.ArraySeparator)
-			cfg.CORSAllowedOrigins = lst
-			set("cors-allowed-origins", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "cors-allowed-origins"); ok {
+		lst := impl.SplitList(v, ec.ArraySeparator)
+		cfg.CORSAllowedOrigins = lst
+		set("cors-allowed-origins", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "stacker-url"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.PublicFrame.StackerURL = v
-			set("public-frame.stacker-url", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "stacker-url"); ok {
+		cfg.PublicFrame.StackerURL = v
+		set("public-frame.stacker-url", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "public-url"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.PublicFrame.PublicURL = v
-			set("public-frame.public-url", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "public-url"); ok {
+		cfg.PublicFrame.PublicURL = v
+		set("public-frame.public-url", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "interval-seconds"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "public-frame.interval-seconds",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "interval-seconds"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "public-frame.interval-seconds",
+				Source: n,
+				Value:  v,
 			}
-			cfg.PublicFrame.IntervalSeconds = int(p)
-			set("public-frame.interval-seconds", configulator.LayerEnv, n)
 		}
+		cfg.PublicFrame.IntervalSeconds = int(p)
+		set("public-frame.interval-seconds", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "timeout-seconds"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "public-frame.timeout-seconds",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "timeout-seconds"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "public-frame.timeout-seconds",
+				Source: n,
+				Value:  v,
 			}
-			cfg.PublicFrame.TimeoutSeconds = int(p)
-			set("public-frame.timeout-seconds", configulator.LayerEnv, n)
 		}
+		cfg.PublicFrame.TimeoutSeconds = int(p)
+		set("public-frame.timeout-seconds", configulator.LayerEnv, n)
 	}
 	return nil
 }
@@ -410,10 +379,39 @@ func ConfigPFlagHooks() cpflag.Hooks[Config] {
 		Register: configRegisterPFlags,
 	}
 }
+
 func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
-	names := []string{strings.Join([]string{"log-level"}, o.Separator), strings.Join([]string{"port"}, o.Separator), strings.Join([]string{"mqtt", "broker"}, o.Separator), strings.Join([]string{"mqtt", "client-id"}, o.Separator), strings.Join([]string{"mqtt", "prefix"}, o.Separator), strings.Join([]string{"mqtt", "username"}, o.Separator), strings.Join([]string{"mqtt", "password"}, o.Separator), strings.Join([]string{"image", "projection"}, o.Separator), strings.Join([]string{"image", "fov"}, o.Separator), strings.Join([]string{"image", "format"}, o.Separator), strings.Join([]string{"image", "width"}, o.Separator), strings.Join([]string{"image", "height"}, o.Separator), strings.Join([]string{"image", "stretch"}, o.Separator), strings.Join([]string{"image", "min-cut"}, o.Separator), strings.Join([]string{"image", "max-cut"}, o.Separator), strings.Join([]string{"image", "hips"}, o.Separator), strings.Join([]string{"cors-allowed-origins"}, o.Separator), strings.Join([]string{"public-frame", "stacker-url"}, o.Separator), strings.Join([]string{"public-frame", "public-url"}, o.Separator), strings.Join([]string{"public-frame", "interval-seconds"}, o.Separator), strings.Join([]string{"public-frame", "timeout-seconds"}, o.Separator)}
+	names := []string{
+		"log-level",
+		"port",
+		"mqtt" + o.Separator + "broker",
+		"mqtt" + o.Separator + "client-id",
+		"mqtt" + o.Separator + "prefix",
+		"mqtt" + o.Separator + "username",
+		"mqtt" + o.Separator + "password",
+		"image" + o.Separator + "projection",
+		"image" + o.Separator + "fov",
+		"image" + o.Separator + "format",
+		"image" + o.Separator + "width",
+		"image" + o.Separator + "height",
+		"image" + o.Separator + "stretch",
+		"image" + o.Separator + "min-cut",
+		"image" + o.Separator + "max-cut",
+		"image" + o.Separator + "hips",
+		"cors-allowed-origins",
+		"public-frame" + o.Separator + "stacker-url",
+		"public-frame" + o.Separator + "public-url",
+		"public-frame" + o.Separator + "interval-seconds",
+		"public-frame" + o.Separator + "timeout-seconds",
+	}
 	for i, name := range names {
-		if fs.Lookup(name) != nil || slices.Contains(names[:i], name) {
+		if f := fs.Lookup(name); f != nil {
+			return &configulator.FlagConflictError{
+				Existing: f.Name,
+				Flag:     name,
+			}
+		}
+		if slices.Contains(names[:i], name) {
 			return &configulator.FlagConflictError{
 				Existing: name,
 				Flag:     name,
@@ -421,7 +419,7 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 		}
 	}
 	fs.String(names[0], "info", "Logging level for the application. One of debug, info, warn, or error")
-	fs.Int(names[1], 8080, "Port to listen on")
+	fs.Var(impl.NewInt(8080), names[1], "Port to listen on")
 	fs.String(names[2], "", "MQTT broker address, e.g. mqtt://mqtt.example.com:1883. Required")
 	fs.String(names[3], "wheresmyscope", "Client ID for MQTT connection")
 	fs.String(names[4], "wheresmyscope", "Prefix for MQTT topics")
@@ -430,8 +428,8 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.String(names[7], "STG", "Projection type. One of AZP, SZP, TAN, STG, SIN, ARC, ZEA, AIR, CYP, CEA, CAR, MER, SFL, PAR, MOL, AIT, TSC, CSC, QSC, HPX, XPH")
 	fs.Float64(names[8], 3.3, "Field of view in degrees")
 	fs.String(names[9], "png", "Image format. One of png, jpeg, or fits")
-	fs.Int(names[10], 900, "Image width in pixels")
-	fs.Int(names[11], 600, "Image height in pixels")
+	fs.Var(impl.NewInt(900), names[10], "Image width in pixels")
+	fs.Var(impl.NewInt(600), names[11], "Image height in pixels")
 	fs.String(names[12], "linear", "Stretch type for png and jpeg images. One of power, linear, sqrt, log, or asinh")
 	fs.Float64(names[13], 0.5, "Minimum value for the stretch, between 0 and 100. Only used for png and jpeg images")
 	fs.Float64(names[14], 99.5, "Maximum value for the stretch, between 0 and 100. Only used for png and jpeg images")
@@ -440,12 +438,13 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.Lookup(names[16]).DefValue = "[https://*,http://*]"
 	fs.String(names[17], "", "astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images")
 	fs.String(names[18], "https://wheresmyscope.mcswain.dev", "This service's public base URL, which the page loads the frame from")
-	fs.Int(names[19], 60, "Seconds between checks for a newer frame")
-	fs.Int(names[20], 10, "Seconds before a fetch from the stacker gives up and the survey image is shown")
+	fs.Var(impl.NewInt(60), names[19], "Seconds between checks for a newer frame")
+	fs.Var(impl.NewInt(10), names[20], "Seconds before a fetch from the stacker gives up and the survey image is shown")
 	return nil
 }
-func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep string, set configulator.SetOrigin) error {
-	if n := strings.Join([]string{"log-level"}, o.Separator); fs.Changed(n) {
+
+func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, _ string, set configulator.SetOrigin) error {
+	if n := "log-level"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -457,7 +456,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.LogLevel = LogLevel(v)
 		set("log-level", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"port"}, o.Separator); fs.Changed(n) {
+	if n := "port"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -469,7 +468,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Port = v
 		set("port", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"mqtt", "broker"}, o.Separator); fs.Changed(n) {
+	if n := "mqtt" + o.Separator + "broker"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -481,7 +480,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.MQTT.Broker = v
 		set("mqtt.broker", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"mqtt", "client-id"}, o.Separator); fs.Changed(n) {
+	if n := "mqtt" + o.Separator + "client-id"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -493,7 +492,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.MQTT.ClientID = v
 		set("mqtt.client-id", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"mqtt", "prefix"}, o.Separator); fs.Changed(n) {
+	if n := "mqtt" + o.Separator + "prefix"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -505,7 +504,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.MQTT.Prefix = v
 		set("mqtt.prefix", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"mqtt", "username"}, o.Separator); fs.Changed(n) {
+	if n := "mqtt" + o.Separator + "username"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -517,7 +516,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.MQTT.Username = v
 		set("mqtt.username", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"mqtt", "password"}, o.Separator); fs.Changed(n) {
+	if n := "mqtt" + o.Separator + "password"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -529,7 +528,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.MQTT.Password = v
 		set("mqtt.password", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "projection"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "projection"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -541,7 +540,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.Projection = ProjectionType(v)
 		set("image.projection", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "fov"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "fov"; fs.Changed(n) {
 		v, err := fs.GetFloat64(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -553,7 +552,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.FOV = v
 		set("image.fov", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "format"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "format"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -565,7 +564,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.Format = ImageFormat(v)
 		set("image.format", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "width"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "width"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -577,7 +576,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.Width = v
 		set("image.width", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "height"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "height"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -589,7 +588,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.Height = v
 		set("image.height", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "stretch"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "stretch"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -601,7 +600,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.Stretch = StretchType(v)
 		set("image.stretch", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "min-cut"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "min-cut"; fs.Changed(n) {
 		v, err := fs.GetFloat64(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -613,7 +612,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.MinCut = v
 		set("image.min-cut", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "max-cut"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "max-cut"; fs.Changed(n) {
 		v, err := fs.GetFloat64(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -625,7 +624,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.MaxCut = v
 		set("image.max-cut", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"image", "hips"}, o.Separator); fs.Changed(n) {
+	if n := "image" + o.Separator + "hips"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -637,7 +636,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Image.HiPS = v
 		set("image.hips", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"cors-allowed-origins"}, o.Separator); fs.Changed(n) {
+	if n := "cors-allowed-origins"; fs.Changed(n) {
 		v, err := fs.GetStringSlice(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -649,7 +648,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.CORSAllowedOrigins = v
 		set("cors-allowed-origins", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"public-frame", "stacker-url"}, o.Separator); fs.Changed(n) {
+	if n := "public-frame" + o.Separator + "stacker-url"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -661,7 +660,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.PublicFrame.StackerURL = v
 		set("public-frame.stacker-url", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"public-frame", "public-url"}, o.Separator); fs.Changed(n) {
+	if n := "public-frame" + o.Separator + "public-url"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -673,7 +672,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.PublicFrame.PublicURL = v
 		set("public-frame.public-url", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"public-frame", "interval-seconds"}, o.Separator); fs.Changed(n) {
+	if n := "public-frame" + o.Separator + "interval-seconds"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -685,7 +684,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.PublicFrame.IntervalSeconds = v
 		set("public-frame.interval-seconds", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"public-frame", "timeout-seconds"}, o.Separator); fs.Changed(n) {
+	if n := "public-frame" + o.Separator + "timeout-seconds"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -699,35 +698,36 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 	}
 	return nil
 }
+
 func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	tok, err := dec.ReadToken()
 	if err != nil {
 		return err
 	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
+	if tok.Kind() != jsontext.KindBeginObject {
+		return fmt.Errorf("expected an object, got %v", tok.Kind())
 	}
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "log-level":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.LogLevel = &str
 			default:
-				return fmt.Errorf("log-level: expected a string, got %v", v.Kind())
+				return configJSONError("log-level", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "port":
 			v, err := dec.ReadToken()
@@ -735,62 +735,79 @@ func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError("port", v, err)
 				}
-				val := int(num)
-				s.Port = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError("port", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Port = &num
 			default:
-				return fmt.Errorf("port: expected a number, got %v", v.Kind())
+				return configJSONError("port", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "mqtt":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("mqtt", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub mQTTShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "mqtt"); err != nil {
 					return err
 				}
 				s.MQTT = &sub
 			}
 		case "image":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("image", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub imageShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "image"); err != nil {
 					return err
 				}
 				s.Image = &sub
 			}
 		case "cors-allowed-origins":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
-				tok, err := dec.ReadToken()
+				open, err := dec.ReadToken()
 				if err != nil {
 					return err
 				}
-				if tok.Kind() != '[' {
-					return fmt.Errorf("cors-allowed-origins: expected an array, got %v", tok.Kind())
+				if open.Kind() != jsontext.KindBeginArray {
+					return configJSONError("cors-allowed-origins", open, fmt.Errorf("expected an array, got %v", open.Kind()))
 				}
 				out := []string{}
-				for dec.PeekKind() != ']' {
+				for dec.PeekKind() != jsontext.KindEndArray {
 					v, err := dec.ReadToken()
 					if err != nil {
 						return err
 					}
-					if v.Kind() != '"' {
-						return fmt.Errorf("cors-allowed-origins: expected a string element, got %v", v.Kind())
+					if v.Kind() != jsontext.KindString {
+						return configJSONError("cors-allowed-origins"+"["+strconv.Itoa(len(out))+"]", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 					}
 					el := v.String()
 					out = append(out, el)
@@ -801,54 +818,61 @@ func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				s.CORSAllowedOrigins = &out
 			}
 		case "public-frame":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("public-frame", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub publicFrameShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "public-frame"); err != nil {
 					return err
 				}
 				s.PublicFrame = &sub
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*configShadow)(nil)
+var _ json.UnmarshalerFrom = (*configShadow)(nil)
 
-func (s *mQTTShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *mQTTShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "broker":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Broker = &str
 			default:
-				return fmt.Errorf("broker: expected a string, got %v", v.Kind())
+				return configJSONError(path+".broker", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "client-id":
 			v, err := dec.ReadToken()
@@ -856,12 +880,12 @@ func (s *mQTTShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.ClientID = &str
 			default:
-				return fmt.Errorf("client-id: expected a string, got %v", v.Kind())
+				return configJSONError(path+".client-id", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "prefix":
 			v, err := dec.ReadToken()
@@ -869,12 +893,12 @@ func (s *mQTTShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Prefix = &str
 			default:
-				return fmt.Errorf("prefix: expected a string, got %v", v.Kind())
+				return configJSONError(path+".prefix", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "username":
 			v, err := dec.ReadToken()
@@ -882,63 +906,70 @@ func (s *mQTTShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Username = &str
 			default:
-				return fmt.Errorf("username: expected a string, got %v", v.Kind())
+				return configJSONError(path+".username", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "password":
-			v, err := dec.ReadToken()
-			if err != nil {
-				return err
-			}
-			switch v.Kind() {
-			case 'n':
-			case '"':
-				str := v.String()
-				s.Password = &str
-			default:
-				return fmt.Errorf("password: expected a string, got %v", v.Kind())
+			if err := func() error {
+				v, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				switch v.Kind() {
+				case jsontext.KindNull:
+				case jsontext.KindString:
+					str := v.String()
+					s.Password = &str
+				default:
+					return configJSONError(path+".password", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+				}
+				return nil
+			}(); err != nil {
+				return &configulator.ParseError{
+					Err:   errors.New("invalid value"),
+					Path:  path + ".password",
+					Value: "(redacted)",
+				}
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*mQTTShadow)(nil)
-
-func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *imageShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "projection":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Projection = &str
 			default:
-				return fmt.Errorf("projection: expected a string, got %v", v.Kind())
+				return configJSONError(path+".projection", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "fov":
 			v, err := dec.ReadToken()
@@ -946,16 +977,15 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
 				num, err := v.Float()
 				if err != nil {
-					return err
+					return configJSONError(path+".fov", v, err)
 				}
-				val := num
-				s.FOV = &val
+				s.FOV = &num
 			default:
-				return fmt.Errorf("fov: expected a number, got %v", v.Kind())
+				return configJSONError(path+".fov", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "format":
 			v, err := dec.ReadToken()
@@ -963,12 +993,12 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Format = &str
 			default:
-				return fmt.Errorf("format: expected a string, got %v", v.Kind())
+				return configJSONError(path+".format", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "width":
 			v, err := dec.ReadToken()
@@ -976,16 +1006,19 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".width", v, err)
 				}
-				val := int(num)
-				s.Width = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".width", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Width = &num
 			default:
-				return fmt.Errorf("width: expected a number, got %v", v.Kind())
+				return configJSONError(path+".width", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "height":
 			v, err := dec.ReadToken()
@@ -993,16 +1026,19 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".height", v, err)
 				}
-				val := int(num)
-				s.Height = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".height", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Height = &num
 			default:
-				return fmt.Errorf("height: expected a number, got %v", v.Kind())
+				return configJSONError(path+".height", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "stretch":
 			v, err := dec.ReadToken()
@@ -1010,12 +1046,12 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Stretch = &str
 			default:
-				return fmt.Errorf("stretch: expected a string, got %v", v.Kind())
+				return configJSONError(path+".stretch", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "min-cut":
 			v, err := dec.ReadToken()
@@ -1023,16 +1059,15 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
 				num, err := v.Float()
 				if err != nil {
-					return err
+					return configJSONError(path+".min-cut", v, err)
 				}
-				val := num
-				s.MinCut = &val
+				s.MinCut = &num
 			default:
-				return fmt.Errorf("min-cut: expected a number, got %v", v.Kind())
+				return configJSONError(path+".min-cut", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "max-cut":
 			v, err := dec.ReadToken()
@@ -1040,16 +1075,15 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
 				num, err := v.Float()
 				if err != nil {
-					return err
+					return configJSONError(path+".max-cut", v, err)
 				}
-				val := num
-				s.MaxCut = &val
+				s.MaxCut = &num
 			default:
-				return fmt.Errorf("max-cut: expected a number, got %v", v.Kind())
+				return configJSONError(path+".max-cut", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "hips":
 			v, err := dec.ReadToken()
@@ -1057,50 +1091,48 @@ func (s *imageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.HiPS = &str
 			default:
-				return fmt.Errorf("hips: expected a string, got %v", v.Kind())
+				return configJSONError(path+".hips", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*imageShadow)(nil)
-
-func (s *publicFrameShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *publicFrameShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "stacker-url":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.StackerURL = &str
 			default:
-				return fmt.Errorf("stacker-url: expected a string, got %v", v.Kind())
+				return configJSONError(path+".stacker-url", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "public-url":
 			v, err := dec.ReadToken()
@@ -1108,12 +1140,12 @@ func (s *publicFrameShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.PublicURL = &str
 			default:
-				return fmt.Errorf("public-url: expected a string, got %v", v.Kind())
+				return configJSONError(path+".public-url", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "interval-seconds":
 			v, err := dec.ReadToken()
@@ -1121,16 +1153,19 @@ func (s *publicFrameShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".interval-seconds", v, err)
 				}
-				val := int(num)
-				s.IntervalSeconds = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".interval-seconds", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.IntervalSeconds = &num
 			default:
-				return fmt.Errorf("interval-seconds: expected a number, got %v", v.Kind())
+				return configJSONError(path+".interval-seconds", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "timeout-seconds":
 			v, err := dec.ReadToken()
@@ -1138,50 +1173,72 @@ func (s *publicFrameShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".timeout-seconds", v, err)
 				}
-				val := int(num)
-				s.TimeoutSeconds = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".timeout-seconds", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.TimeoutSeconds = &num
 			default:
-				return fmt.Errorf("timeout-seconds: expected a number, got %v", v.Kind())
+				return configJSONError(path+".timeout-seconds", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*publicFrameShadow)(nil)
+// configJSONError returns a ParseError for the JSON token v at path.
+func configJSONError(path string, v jsontext.Token, err error) error {
+	return &configulator.ParseError{
+		Err:   err,
+		Path:  path,
+		Value: v.String(),
+	}
+}
 
 // PrintConfig renders every field as "path = value" lines, redacting
 // fields tagged secret:"true". The origin Report holds no values,
 // so this is the only place redaction happens.
-func (c *Config) PrintConfig() string {
+func (c Config) PrintConfig() string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("log-level = %v\n", c.LogLevel))
-	b.WriteString(fmt.Sprintf("port = %v\n", c.Port))
-	b.WriteString(fmt.Sprintf("mqtt.broker = %v\n", c.MQTT.Broker))
-	b.WriteString(fmt.Sprintf("mqtt.client-id = %v\n", c.MQTT.ClientID))
-	b.WriteString(fmt.Sprintf("mqtt.prefix = %v\n", c.MQTT.Prefix))
-	b.WriteString(fmt.Sprintf("mqtt.username = %v\n", c.MQTT.Username))
+	fmt.Fprintf(&b, "log-level = %v\n", c.LogLevel)
+	fmt.Fprintf(&b, "port = %v\n", c.Port)
+	fmt.Fprintf(&b, "mqtt.broker = %v\n", c.MQTT.Broker)
+	fmt.Fprintf(&b, "mqtt.client-id = %v\n", c.MQTT.ClientID)
+	fmt.Fprintf(&b, "mqtt.prefix = %v\n", c.MQTT.Prefix)
+	fmt.Fprintf(&b, "mqtt.username = %v\n", c.MQTT.Username)
 	b.WriteString("mqtt.password = (redacted)\n")
-	b.WriteString(fmt.Sprintf("image.projection = %v\n", c.Image.Projection))
-	b.WriteString(fmt.Sprintf("image.fov = %v\n", c.Image.FOV))
-	b.WriteString(fmt.Sprintf("image.format = %v\n", c.Image.Format))
-	b.WriteString(fmt.Sprintf("image.width = %v\n", c.Image.Width))
-	b.WriteString(fmt.Sprintf("image.height = %v\n", c.Image.Height))
-	b.WriteString(fmt.Sprintf("image.stretch = %v\n", c.Image.Stretch))
-	b.WriteString(fmt.Sprintf("image.min-cut = %v\n", c.Image.MinCut))
-	b.WriteString(fmt.Sprintf("image.max-cut = %v\n", c.Image.MaxCut))
-	b.WriteString(fmt.Sprintf("image.hips = %v\n", c.Image.HiPS))
-	b.WriteString(fmt.Sprintf("cors-allowed-origins = %v\n", c.CORSAllowedOrigins))
-	b.WriteString(fmt.Sprintf("public-frame.stacker-url = %v\n", c.PublicFrame.StackerURL))
-	b.WriteString(fmt.Sprintf("public-frame.public-url = %v\n", c.PublicFrame.PublicURL))
-	b.WriteString(fmt.Sprintf("public-frame.interval-seconds = %v\n", c.PublicFrame.IntervalSeconds))
-	b.WriteString(fmt.Sprintf("public-frame.timeout-seconds = %v\n", c.PublicFrame.TimeoutSeconds))
+	fmt.Fprintf(&b, "image.projection = %v\n", c.Image.Projection)
+	fmt.Fprintf(&b, "image.fov = %v\n", c.Image.FOV)
+	fmt.Fprintf(&b, "image.format = %v\n", c.Image.Format)
+	fmt.Fprintf(&b, "image.width = %v\n", c.Image.Width)
+	fmt.Fprintf(&b, "image.height = %v\n", c.Image.Height)
+	fmt.Fprintf(&b, "image.stretch = %v\n", c.Image.Stretch)
+	fmt.Fprintf(&b, "image.min-cut = %v\n", c.Image.MinCut)
+	fmt.Fprintf(&b, "image.max-cut = %v\n", c.Image.MaxCut)
+	fmt.Fprintf(&b, "image.hips = %v\n", c.Image.HiPS)
+	fmt.Fprintf(&b, "cors-allowed-origins = %v\n", c.CORSAllowedOrigins)
+	fmt.Fprintf(&b, "public-frame.stacker-url = %v\n", c.PublicFrame.StackerURL)
+	fmt.Fprintf(&b, "public-frame.public-url = %v\n", c.PublicFrame.PublicURL)
+	fmt.Fprintf(&b, "public-frame.interval-seconds = %v\n", c.PublicFrame.IntervalSeconds)
+	fmt.Fprintf(&b, "public-frame.timeout-seconds = %v\n", c.PublicFrame.TimeoutSeconds)
 	return b.String()
+}
+
+func configQuoteKey(k string) string {
+	if strings.ContainsAny(k, ".[") {
+		return "\"" + strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(k) + "\""
+	}
+	return k
 }
