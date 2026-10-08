@@ -36,7 +36,7 @@ image:
   # HiPS survey to render the image from
   hips: "CDS/P/DSS2/color"
 # CORS allowed origins
-cors-allowed-origins: [https://*,http://*]
+cors-allowed-origins: ["https://*", "http://*"]
 # The observatory's own newest sub of the target, from astro-stacker
 public-frame:
   # astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images
