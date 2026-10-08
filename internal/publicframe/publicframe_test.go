@@ -57,27 +57,17 @@ func TestFetch(t *testing.T) {
 		t.Error("frame dropped on 304")
 	}
 
-	// Errors and timeouts fall back to the survey image, and a 304 brings
-	// the frame back.
+	// Errors and timeouts keep the frame shown.
 	for _, s := range []int32{http.StatusInternalServerError, -1} {
 		status.Store(s)
 		if err := f.Fetch(ctx, "Orion"); err == nil {
 			t.Errorf("status %d: no error", s)
 		}
-		if _, ok := f.Current("Orion"); ok {
-			t.Errorf("status %d: frame still shown", s)
-		}
-		if f.Latest() == nil {
+		if _, ok := f.Current("Orion"); !ok {
 			t.Errorf("status %d: frame dropped", s)
 		}
-		status.Store(http.StatusOK)
-		if err := f.Fetch(ctx, "Orion"); err != nil {
-			t.Fatal(err)
-		}
-		if _, ok := f.Current("Orion"); !ok {
-			t.Errorf("status %d: frame not back after a 304", s)
-		}
 	}
+	status.Store(http.StatusOK)
 
 	// The stacker has none: nothing to show.
 	status.Store(http.StatusNotFound)

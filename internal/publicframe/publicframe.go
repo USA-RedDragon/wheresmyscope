@@ -78,16 +78,8 @@ func (f *Fetcher) Latest() *Frame {
 	return f.frame
 }
 
-// Clear stops showing a frame, as when the observatory stops imaging.
-func (f *Fetcher) Clear() {
-	f.mu.Lock()
-	f.ok = false
-	f.mu.Unlock()
-}
-
 // Fetch asks the stacker for object's frame, sending the ETag of the one
-// held. A 404 means it has none; any other failure leaves the page on the
-// survey image until a fetch succeeds.
+// held. A 404 means it has none; any other failure keeps the frame held.
 func (f *Fetcher) Fetch(ctx context.Context, object string) error {
 	f.mu.RLock()
 	held := f.frame
@@ -151,11 +143,9 @@ func (f *Fetcher) set(frame *Frame, ok bool) {
 	f.mu.Unlock()
 }
 
-func (f *Fetcher) fail() {
-	f.mu.Lock()
-	f.ok = false
-	f.mu.Unlock()
-}
+// fail keeps the frame held: the stacker restarting shouldn't swap the
+// page back to the survey image.
+func (f *Fetcher) fail() {}
 
 // ServeHTTP serves the frame held, the bytes as fetched, with its ETag.
 // The page's URL carries the frame's version, so it may be cached.

@@ -113,8 +113,8 @@ func (m *MQTT) Stop() error {
 }
 
 // GetState is the scope's state, with the image the page should show: the
-// observatory's newest sub of the target while it is imaging it, else the
-// survey cutout.
+// observatory's newest sub of the target, or the survey cutout when the
+// stacker has none.
 func (m *MQTT) GetState() ScopeState {
 	m.stateLock.Lock()
 	defer m.stateLock.Unlock()
@@ -133,7 +133,7 @@ func (m *MQTT) Frames() http.Handler {
 
 // imageURL is the image to show; the caller holds stateLock.
 func (m *MQTT) imageURL() string {
-	if m.frames != nil && m.state.Live {
+	if m.frames != nil {
 		if f, ok := m.frames.Current(m.state.Target); ok {
 			return m.publicURL + "/image.jpg?v=" + url.QueryEscape(f.Version())
 		}
@@ -141,8 +141,7 @@ func (m *MQTT) imageURL() string {
 	return m.surveyURL
 }
 
-// RunPublicFrames keeps the public frame of the target being imaged
-// current, polling every interval and whenever the target or availability
+// RunPublicFrames keeps the public frame of the scope's target current, polling every interval and whenever the target or availability
 // changes, until ctx ends. Nothing is fetched per page request.
 func (m *MQTT) RunPublicFrames(ctx context.Context, interval time.Duration) {
 	if m.frames == nil {
@@ -152,14 +151,12 @@ func (m *MQTT) RunPublicFrames(ctx context.Context, interval time.Duration) {
 	defer t.Stop()
 	for {
 		m.stateLock.Lock()
-		target, live := m.state.Target, m.state.Live
+		target := m.state.Target
 		m.stateLock.Unlock()
-		if live && target != "" {
+		if target != "" {
 			if err := m.frames.Fetch(ctx, target); err != nil && ctx.Err() == nil {
-				slog.Warn("Could not fetch the public frame; showing the survey image", "target", target, "error", err)
+				slog.Warn("Could not fetch the public frame", "target", target, "error", err)
 			}
-		} else {
-			m.frames.Clear()
 		}
 		m.publishImageURL(false)
 		select {

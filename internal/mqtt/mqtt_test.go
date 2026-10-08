@@ -12,8 +12,9 @@ import (
 	"github.com/USA-RedDragon/wheresmyscope/internal/publicframe"
 )
 
-// TestImageURL checks the page is sent the observatory's frame only while it
-// is imaging the target the frame is of, and the survey image otherwise.
+// TestImageURL checks the page is sent the observatory's frame of the
+// scope's target whether or not it is imaging, and the survey image only
+// when there is no frame of that target.
 func TestImageURL(t *testing.T) {
 	stacker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("object") != "Orion" {
@@ -37,11 +38,12 @@ func TestImageURL(t *testing.T) {
 	if err := m.frames.Fetch(context.Background(), "Orion"); err != nil {
 		t.Fatal(err)
 	}
-	if got := m.GetState().ImageURL; got != survey {
-		t.Errorf("not imaging, image %q, want the survey", got)
+	want := "https://wheresmyscope.example/image.jpg?v=0123456789abcdef"
+	if got := m.GetState().ImageURL; got != want {
+		t.Errorf("not imaging, image %q, want %q", got, want)
 	}
 	m.applyState("p/available", "true")
-	if got, want := m.GetState().ImageURL, "https://wheresmyscope.example/image.jpg?v=0123456789abcdef"; got != want {
+	if got := m.GetState().ImageURL; got != want {
 		t.Errorf("imaging Orion, image %q, want %q", got, want)
 	}
 	m.applyState("p/name", "M 31")
