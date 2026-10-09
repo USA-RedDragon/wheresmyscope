@@ -1,6 +1,10 @@
 package config
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"net/netip"
+)
 
 var (
 	ErrInvalidLogLevel    = errors.New("invalid log level provided")
@@ -18,11 +22,34 @@ var (
 	ErrMinCutTooLarge     = errors.New("min cut must be less than 100")
 	ErrPublicFrameTiming  = errors.New("public frame interval and timeout must be greater than 0")
 	ErrNoPublicURL        = errors.New("public frames need this service's public URL")
+	ErrInvalidProxy       = errors.New("trusted proxy must be an IP or CIDR")
 )
+
+// TrustedProxyPrefixes parses TrustedProxies. A bare IP becomes a
+// single-address prefix.
+func (c Config) TrustedProxyPrefixes() ([]netip.Prefix, error) {
+	out := make([]netip.Prefix, 0, len(c.TrustedProxies))
+	for _, p := range c.TrustedProxies {
+		if prefix, err := netip.ParsePrefix(p); err == nil {
+			out = append(out, prefix.Masked())
+			continue
+		}
+		addr, err := netip.ParseAddr(p)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %q", ErrInvalidProxy, p)
+		}
+		out = append(out, netip.PrefixFrom(addr.Unmap(), addr.Unmap().BitLen()))
+	}
+	return out, nil
+}
 
 func (c Config) Validate() error {
 	if !c.LogLevel.valid() {
 		return ErrInvalidLogLevel
+	}
+
+	if _, err := c.TrustedProxyPrefixes(); err != nil {
+		return err
 	}
 
 	if c.Port < 1 || c.Port > 65535 {

@@ -8,6 +8,7 @@ type Config struct {
 	MQTT               MQTT        `name:"mqtt" description:"MQTT configuration"`
 	Image              Image       `name:"image" description:"Image configuration"`
 	CORSAllowedOrigins []string    `name:"cors-allowed-origins" description:"CORS allowed origins" default:"https://*,http://*"`
+	TrustedProxies     []string    `name:"trusted-proxies" description:"Reverse proxy IPs or CIDRs allowed to set X-Forwarded-For for the client IP in logs. Empty logs the connection address"`
 	PublicFrame        PublicFrame `name:"public-frame" description:"The observatory's own newest sub of the target, from astro-stacker"`
 }
 

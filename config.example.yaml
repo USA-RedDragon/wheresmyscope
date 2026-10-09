@@ -37,6 +37,8 @@ image:
   hips: "CDS/P/DSS2/color"
 # CORS allowed origins
 cors-allowed-origins: ["https://*", "http://*"]
+# Reverse proxy IPs or CIDRs allowed to set X-Forwarded-For for the client IP in logs. Empty logs the connection address
+# trusted-proxies: []
 # The observatory's own newest sub of the target, from astro-stacker
 public-frame:
   # astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images

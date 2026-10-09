@@ -22,7 +22,7 @@ const (
 func NewRouter(cfg *config.Config, mqttClient *mqtt.MQTT) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(clientIP(cfg))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))

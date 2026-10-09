@@ -105,3 +105,40 @@ func TestPublicFrameValidation(t *testing.T) {
 		t.Errorf("no public URL: %v", err)
 	}
 }
+
+func TestTrustedProxiesValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		proxies []string
+		valid   bool
+	}{
+		{"none", nil, true},
+		{"cidrs and ips", []string{"10.0.0.0/8", "::1", "fd00::/8"}, true},
+		{"hostname", []string{"proxy.local"}, false},
+		{"bad cidr", []string{"10.0.0.0/33"}, false},
+	}
+
+	defConfig, err := configulator.New(config.ConfigSchema()).Default()
+	if err != nil {
+		t.Fatalf("failed to create default config: %v", err)
+	}
+	defConfig.MQTT.Broker = "mqtt://localhost:1883"
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := defConfig
+			cfg.TrustedProxies = tt.proxies
+			err := cfg.Validate()
+			if tt.valid {
+				if err != nil {
+					t.Errorf("Validate() unexpected error = %v", err)
+				}
+			} else if !errors.Is(err, config.ErrInvalidProxy) {
+				t.Errorf("Validate() error = %v, want %v", err, config.ErrInvalidProxy)
+			}
+		})
+	}
+}

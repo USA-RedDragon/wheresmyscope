@@ -53,6 +53,7 @@ type configShadow struct {
 	MQTT               *mQTTShadow        `json:"mqtt"                 toml:"mqtt"                 yaml:"mqtt"`
 	Image              *imageShadow       `json:"image"                toml:"image"                yaml:"image"`
 	CORSAllowedOrigins *[]string          `json:"cors-allowed-origins" toml:"cors-allowed-origins" yaml:"cors-allowed-origins"`
+	TrustedProxies     *[]string          `json:"trusted-proxies"      toml:"trusted-proxies"      yaml:"trusted-proxies"`
 	PublicFrame        *publicFrameShadow `json:"public-frame"         toml:"public-frame"         yaml:"public-frame"`
 }
 
@@ -189,6 +190,10 @@ func (s *configShadow) applyTo(cfg *Config, _ string, set configulator.SetOrigin
 	if s.CORSAllowedOrigins != nil {
 		cfg.CORSAllowedOrigins = *s.CORSAllowedOrigins
 		set("cors-allowed-origins", configulator.LayerFile, file)
+	}
+	if s.TrustedProxies != nil {
+		cfg.TrustedProxies = *s.TrustedProxies
+		set("trusted-proxies", configulator.LayerFile, file)
 	}
 	if s.PublicFrame != nil {
 		if s.PublicFrame.StackerURL != nil {
@@ -335,6 +340,11 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 		cfg.CORSAllowedOrigins = lst
 		set("cors-allowed-origins", configulator.LayerEnv, n)
 	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "trusted-proxies"); ok {
+		lst := impl.SplitList(v, ec.ArraySeparator)
+		cfg.TrustedProxies = lst
+		set("trusted-proxies", configulator.LayerEnv, n)
+	}
 	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "public-frame", "stacker-url"); ok {
 		cfg.PublicFrame.StackerURL = v
 		set("public-frame.stacker-url", configulator.LayerEnv, n)
@@ -399,6 +409,7 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 		"image" + o.Separator + "max-cut",
 		"image" + o.Separator + "hips",
 		"cors-allowed-origins",
+		"trusted-proxies",
 		"public-frame" + o.Separator + "stacker-url",
 		"public-frame" + o.Separator + "public-url",
 		"public-frame" + o.Separator + "interval-seconds",
@@ -436,10 +447,11 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.String(names[15], "CDS/P/DSS2/color", "HiPS survey to render the image from")
 	fs.StringSlice(names[16], nil, "CORS allowed origins")
 	fs.Lookup(names[16]).DefValue = "[https://*,http://*]"
-	fs.String(names[17], "", "astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images")
-	fs.String(names[18], "https://wheresmyscope.mcswain.dev", "This service's public base URL, which the page loads the frame from")
-	fs.Var(impl.NewInt(60), names[19], "Seconds between checks for a newer frame")
-	fs.Var(impl.NewInt(10), names[20], "Seconds before a fetch from the stacker gives up and the survey image is shown")
+	fs.StringSlice(names[17], nil, "Reverse proxy IPs or CIDRs allowed to set X-Forwarded-For for the client IP in logs. Empty logs the connection address")
+	fs.String(names[18], "", "astro-stacker's base URL, e.g. http://astro-stacker.astro-processing:8080; empty shows only survey images")
+	fs.String(names[19], "https://wheresmyscope.mcswain.dev", "This service's public base URL, which the page loads the frame from")
+	fs.Var(impl.NewInt(60), names[20], "Seconds between checks for a newer frame")
+	fs.Var(impl.NewInt(10), names[21], "Seconds before a fetch from the stacker gives up and the survey image is shown")
 	return nil
 }
 
@@ -648,6 +660,18 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, _ stri
 		cfg.CORSAllowedOrigins = v
 		set("cors-allowed-origins", configulator.LayerCLI, "--"+n)
 	}
+	if n := "trusted-proxies"; fs.Changed(n) {
+		v, err := fs.GetStringSlice(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "trusted-proxies",
+				Source: "--" + n,
+			}
+		}
+		cfg.TrustedProxies = v
+		set("trusted-proxies", configulator.LayerCLI, "--"+n)
+	}
 	if n := "public-frame" + o.Separator + "stacker-url"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
@@ -816,6 +840,36 @@ func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 					return err
 				}
 				s.CORSAllowedOrigins = &out
+			}
+		case "trusted-proxies":
+			if dec.PeekKind() == jsontext.KindNull {
+				if _, err := dec.ReadToken(); err != nil {
+					return err
+				}
+			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginArray {
+					return configJSONError("trusted-proxies", open, fmt.Errorf("expected an array, got %v", open.Kind()))
+				}
+				out := []string{}
+				for dec.PeekKind() != jsontext.KindEndArray {
+					v, err := dec.ReadToken()
+					if err != nil {
+						return err
+					}
+					if v.Kind() != jsontext.KindString {
+						return configJSONError("trusted-proxies"+"["+strconv.Itoa(len(out))+"]", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+					}
+					el := v.String()
+					out = append(out, el)
+				}
+				if _, err := dec.ReadToken(); err != nil {
+					return err
+				}
+				s.TrustedProxies = &out
 			}
 		case "public-frame":
 			if dec.PeekKind() == jsontext.KindNull {
@@ -1229,6 +1283,7 @@ func (c Config) PrintConfig() string {
 	fmt.Fprintf(&b, "image.max-cut = %v\n", c.Image.MaxCut)
 	fmt.Fprintf(&b, "image.hips = %v\n", c.Image.HiPS)
 	fmt.Fprintf(&b, "cors-allowed-origins = %v\n", c.CORSAllowedOrigins)
+	fmt.Fprintf(&b, "trusted-proxies = %v\n", c.TrustedProxies)
 	fmt.Fprintf(&b, "public-frame.stacker-url = %v\n", c.PublicFrame.StackerURL)
 	fmt.Fprintf(&b, "public-frame.public-url = %v\n", c.PublicFrame.PublicURL)
 	fmt.Fprintf(&b, "public-frame.interval-seconds = %v\n", c.PublicFrame.IntervalSeconds)
