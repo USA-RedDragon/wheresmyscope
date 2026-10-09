@@ -1,6 +1,6 @@
 cmd/root.go	46	0
 internal/config/validate.go	56	43
-internal/mqtt/mqtt.go	122	53
+internal/mqtt/mqtt.go	121	53
 internal/publicframe/publicframe.go	73	62
 internal/server/clientip.go	24	22
 internal/server/server.go	27	0
