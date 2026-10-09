@@ -64,11 +64,24 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 	}
 
 	pahoConfig := autopaho.ClientConfig{
-		ServerUrls:            []*url.URL{u},
-		KeepAlive:             30,
-		SessionExpiryInterval: 0xFFFFFFFE, // Never expire
-		ConnectUsername:       config.MQTT.Username,
-		ConnectPassword:       []byte(config.MQTT.Password),
+		ServerUrls:                    []*url.URL{u},
+		KeepAlive:                     30,
+		CleanStartOnInitialConnection: true,
+		SessionExpiryInterval:         0,
+		ConnectUsername:               config.MQTT.Username,
+		ConnectPassword:               []byte(config.MQTT.Password),
+		OnConnectionUp: func(cm *autopaho.ConnectionManager, _ *paho.Connack) {
+			if _, err := cm.Subscribe(ctx, &paho.Subscribe{
+				Subscriptions: []paho.SubscribeOptions{
+					{
+						Topic: config.MQTT.Prefix + "/#",
+						QoS:   1,
+					},
+				},
+			}); err != nil && ctx.Err() == nil {
+				slog.Error("failed to subscribe", "error", err)
+			}
+		},
 		ClientConfig: paho.ClientConfig{
 			ClientID: fmt.Sprintf("%s_%s", config.MQTT.ClientID, uuid.New().String()),
 			OnPublishReceived: []func(paho.PublishReceived) (bool, error){
@@ -90,18 +103,6 @@ func NewMQTT(ctx context.Context, config *config.Config) (*MQTT, error) {
 	mqtt.clientLock.Lock()
 	mqtt.client = c
 	mqtt.clientLock.Unlock()
-
-	_, err = c.Subscribe(ctx, &paho.Subscribe{
-		Subscriptions: []paho.SubscribeOptions{
-			{
-				Topic: config.MQTT.Prefix + "/#",
-				QoS:   1,
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	return mqtt, nil
 }
