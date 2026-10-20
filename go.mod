@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/USA-RedDragon/configulator/v2 v2.5.0
 	github.com/eclipse/paho.golang v0.23.0
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/cors v1.2.2
 	github.com/goccy/go-yaml v1.19.2
 	github.com/google/uuid v1.6.0
